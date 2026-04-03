@@ -1,0 +1,5 @@
+{
+  "name": "OFX to JSON Converter",
+  "description": "A minimalist, glassmorphism-styled tool to parse OFX files and convert them into structured JSON for Personal Finance Control.",
+  "requestFramePermissions": []
+}
