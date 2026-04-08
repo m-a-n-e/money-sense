@@ -57,7 +57,8 @@ function extractPaymentMethod(text: string, trnType: string): string {
   return paymentMethod;
 }
 
-export function parseOFX(ofxString: string): OFXData {
+export async function parseOFX(file: File): Promise<OFXData> {
+  const ofxString = await file.text();
   const data: OFXData = { transactions: [] };
 
   data.currency = extractTag(ofxString, 'CURDEF') || 'BRL';

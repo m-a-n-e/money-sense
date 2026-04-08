@@ -1,59 +1,75 @@
 import React, { useMemo, useState, useCallback, useRef } from 'react';
-import { OFXData } from '../lib/ofxParser';
-import { ArrowDownRight, ArrowUpRight, TrendingUp, TrendingDown, DollarSign, UploadCloud } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { OFXData } from '../lib/parsers';
+import { ArrowDownRight, ArrowUpRight, TrendingUp, TrendingDown, DollarSign, UploadCloud, X, FileText } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { getCategoryColor, getCategoryHexColor } from '../lib/categoryColors';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'react-hot-toast';
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
-  'Alimentação': 'Gastos com supermercado, restaurantes, padarias e delivery.',
-  'Transporte': 'Combustível, aplicativos de transporte, passagens e manutenção de veículos.',
-  'Moradia': 'Aluguel, condomínio, contas de água, luz, internet e manutenções residenciais.',
-  'Saúde': 'Farmácias, consultas médicas, exames e planos de saúde.',
-  'Lazer': 'Assinaturas de streaming, cinema, shows, viagens e entretenimento.',
-  'Educação': 'Mensalidades escolares, cursos, livros e materiais didáticos.',
-  'Serviços': 'Pagamentos de serviços diversos, assinaturas de software e taxas.',
-  'Compras': 'Vestuário, eletrônicos, móveis e compras em geral.',
-  'Investimentos': 'Aportes em corretoras, poupança, tesouro direto e criptomoedas.',
-  'Salário': 'Recebimentos de salário, adiantamentos e remunerações.',
-  'Transferência': 'Envio ou recebimento de valores entre contas.',
+  'Mercado': 'Gastos com supermercados, atacarejos, hortifruti e açougues.',
+  'Restaurante/Delivery': 'Gastos com restaurantes, padarias, pizzarias e aplicativos de delivery (iFood, Rappi).',
+  'Combustível': 'Gastos com postos de gasolina e combustíveis.',
+  'Transporte App': 'Corridas em aplicativos como Uber, 99, Cabify e inDrive.',
+  'Transporte Público': 'Passagens de ônibus, metrô, trem e recargas de bilhete único.',
+  'Contas Residenciais': 'Contas de água, luz, gás, internet e telefone fixo.',
+  'Aluguel/Condomínio': 'Pagamento de aluguel e taxas condominiais.',
+  'Farmácia': 'Gastos em farmácias e drogarias.',
+  'Saúde/Consultas': 'Consultas médicas, exames, dentista e planos de saúde.',
+  'Assinaturas/Streaming': 'Netflix, Spotify, Amazon Prime, HBO, Disney+ e outras assinaturas.',
+  'Lazer/Eventos': 'Cinema, shows, teatro, ingressos e viagens.',
+  'Educação': 'Mensalidades escolares, faculdade, cursos online e materiais didáticos.',
+  'Serviços de Software': 'Assinaturas de softwares, serviços em nuvem (AWS, Google) e telefonia móvel.',
+  'Taxas Bancárias': 'Tarifas de manutenção, anuidades de cartão, juros e IOF.',
+  'Vestuário': 'Roupas, calçados e acessórios.',
+  'Eletrônicos': 'Smartphones, computadores, videogames e gadgets.',
+  'Casa/Móveis': 'Móveis, decoração, eletrodomésticos e utensílios para o lar.',
+  'Investimentos': 'Aportes em corretoras, CDB, Tesouro Direto, ações e criptomoedas.',
+  'Salário': 'Recebimentos de salário, adiantamentos, férias e rescisão.',
+  'Transferência Enviada': 'Envio de valores via PIX, TED ou DOC para outras contas.',
+  'Transferência Recebida': 'Recebimento de valores via PIX, TED ou DOC.',
   'Petshop': 'Gastos com animais de estimação, veterinário, ração e banho.',
-  'Outros': 'Despesas ou receitas que não se encaixam nas demais categorias.',
-  'Recebimentos': 'Entradas diversas de dinheiro na conta.',
-  'Pagamentos': 'Pagamentos diversos de boletos e contas.'
+  'Impostos': 'Pagamento de IPVA, IPTU, Imposto de Renda e outras taxas governamentais.',
+  'Cuidados Pessoais': 'Salão de beleza, barbearia, estética e cosméticos.',
+  'Doações': 'Doações para ONGs, instituições de caridade e campanhas.',
+  'Outros': 'Despesas ou receitas que não se encaixam nas demais categorias.'
 };
 
 interface DashboardProps {
   appData: OFXData | null;
   onProcessFile: (file: File) => void;
+  onOpenImportModal: () => void;
 }
 
 const COLORS = ['#cffafe', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#60a5fa', '#f472b6', '#94a3b8'];
 
-export default function Dashboard({ appData, onProcessFile }: DashboardProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+export default function Dashboard({ appData, onProcessFile, onOpenImportModal }: DashboardProps) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      onProcessFile(e.target.files[0]);
-    }
-  };
 
   const transactions = appData?.transactions || [];
   const balance = appData?.balance || 0;
   const currency = appData?.currency || 'BRL';
 
-  const { income, expense, categoryData } = useMemo(() => {
+  const { income, expense, categoryData, monthlyData } = useMemo(() => {
     let inc = 0;
     let exp = 0;
     const catMap: Record<string, number> = {};
+    const monthMap: Record<string, { income: number, expense: number, balance: number }> = {};
 
     transactions.forEach(tx => {
+      const month = tx.date.substring(0, 7); // YYYY-MM
+      if (!monthMap[month]) {
+        monthMap[month] = { income: 0, expense: 0, balance: 0 };
+      }
+
       if (tx.flow === 'INFLOW') {
         inc += tx.amount;
+        monthMap[month].income += tx.amount;
+        monthMap[month].balance += tx.amount;
       } else {
         exp += Math.abs(tx.amount);
+        monthMap[month].expense += Math.abs(tx.amount);
+        monthMap[month].balance -= Math.abs(tx.amount);
         const cat = tx.category || 'Outros';
         catMap[cat] = (catMap[cat] || 0) + Math.abs(tx.amount);
       }
@@ -64,7 +80,21 @@ export default function Dashboard({ appData, onProcessFile }: DashboardProps) {
       value: catMap[key]
     })).sort((a, b) => b.value - a.value);
 
-    return { income: inc, expense: exp, categoryData: catData };
+    const mData = Object.keys(monthMap).sort().map(month => {
+      const [year, m] = month.split('-');
+      const date = new Date(parseInt(year), parseInt(m) - 1, 15);
+      const label = date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+      
+      return {
+        month,
+        label: label.charAt(0).toUpperCase() + label.slice(1),
+        Receitas: monthMap[month].income,
+        Despesas: monthMap[month].expense,
+        Saldo: monthMap[month].balance
+      };
+    });
+
+    return { income: inc, expense: exp, categoryData: catData, monthlyData: mData };
   }, [transactions]);
 
   const formatCurrency = (val: number) => {
@@ -83,19 +113,12 @@ export default function Dashboard({ appData, onProcessFile }: DashboardProps) {
             <p className="text-white/50 text-sm md:text-base">Acompanhe suas finanças categorizadas automaticamente.</p>
           </div>
           <button 
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => onOpenImportModal()}
             className="flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-100/10 hover:bg-cyan-100/20 text-cyan-50 border border-cyan-100/20 rounded-xl transition-all font-medium text-sm md:text-base backdrop-blur-md shadow-xl"
           >
             <UploadCloud className="w-4 h-4 md:w-5 md:h-5" />
-            {isEmpty ? 'Importar Extrato OFX' : 'Importar Novo Extrato'}
+            Importar extrato
           </button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={onFileChange}
-            accept=".ofx"
-            className="hidden"
-          />
         </header>
 
         {/* Summary Cards */}
@@ -208,7 +231,7 @@ export default function Dashboard({ appData, onProcessFile }: DashboardProps) {
               {isEmpty ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white/40">
                   <UploadCloud className="w-12 h-12 mb-4 opacity-50" />
-                  <p>Importe um arquivo OFX para ver suas transações</p>
+                  <p>Importe seu extrato bancário para começar a analisar suas finanças.</p>
                 </div>
               ) : (
                 <table className="w-full text-left border-collapse min-w-[600px]">
@@ -255,6 +278,38 @@ export default function Dashboard({ appData, onProcessFile }: DashboardProps) {
             </div>
           </div>
         </div>
+
+        {/* Resumo Mensal */}
+        {monthlyData.length > 0 && (
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-3xl p-5 md:p-6 flex flex-col">
+            <h3 className="text-base md:text-lg font-medium mb-4 md:mb-6 text-cyan-50">Resumo Mensal</h3>
+            <div className="w-full h-[300px] md:h-[350px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
+                  <XAxis dataKey="label" stroke="rgba(255,255,255,0.5)" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis 
+                    stroke="rgba(255,255,255,0.5)" 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false} 
+                    tickFormatter={(value) => `R$ ${value >= 1000 ? (value/1000).toFixed(1) + 'k' : value}`} 
+                  />
+                  <Tooltip 
+                    formatter={(value: number) => formatCurrency(value)}
+                    contentStyle={{ backgroundColor: 'rgba(24, 24, 27, 0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }}
+                    itemStyle={{ color: '#fff' }}
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                  />
+                  <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px', color: 'rgba(255,255,255,0.7)' }} />
+                  <Bar dataKey="Receitas" fill="#34d399" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Despesas" fill="#f87171" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Saldo" fill="#cffafe" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

@@ -12,6 +12,24 @@
   .custom-scrollbar::-webkit-scrollbar-thumb {
     background-color: #27272a; /* zinc-800 */
     border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #3f3f46; /* zinc-700 */
+  }
+}
+
+@layer components {
+  .cyberpunk-checkbox {
+    @apply appearance-none w-5 h-5 border-2 border-cyan-100/40 rounded-[5px] bg-transparent relative cursor-pointer transition-colors hover:border-cyan-100/70 checked:border-cyan-100 m-0 align-middle;
+  }
+  .cyberpunk-checkbox::before {
+    content: "";
+    @apply bg-cyan-100 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-0 w-2.5 h-2.5 rounded-[3px] transition-all duration-300 ease-in-out;
+  }
+  .cyberpunk-checkbox:checked::before {
+    @apply scale-100;
   }
 }
 
@@ -24,8 +42,13 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background-color: #cffafe; /* cyan-100 */
+  background-color: #27272a; /* zinc-800 */
   border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #3f3f46; /* zinc-700 */
 }
 
 body {

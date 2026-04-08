@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, ListOrdered } from 'lucide-react';
+import { LayoutDashboard, ListOrdered, Bot } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface SidebarProps {
