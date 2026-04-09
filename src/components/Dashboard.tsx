@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback, useRef } from 'react';
 import { OFXData } from '../lib/parsers';
-import { ArrowDownRight, ArrowUpRight, TrendingUp, TrendingDown, DollarSign, UploadCloud, X, FileText } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, TrendingUp, TrendingDown, DollarSign, UploadCloud, X, FileText, LayoutDashboard, ListOrdered, PieChart as PieChartIcon } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { getCategoryColor, getCategoryHexColor } from '../lib/categoryColors';
 import { motion, AnimatePresence } from 'motion/react';
@@ -39,6 +39,7 @@ interface DashboardProps {
   appData: OFXData | null;
   onProcessFile: (file: File) => void;
   onOpenImportModal: () => void;
+  subView?: string;
 }
 
 const COLORS = ['#cffafe', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#60a5fa', '#f472b6', '#94a3b8'];
@@ -104,17 +105,22 @@ export default function Dashboard({ appData, onProcessFile, onOpenImportModal }:
   const isEmpty = transactions.length === 0;
 
   return (
-    <div className="w-full p-4 md:p-8 z-10">
-      <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
+    <div className="w-full px-4 py-6 md:p-8 z-10">
+      <div className="w-full max-w-6xl mx-auto space-y-6 md:space-y-8">
         
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-2xl md:text-3xl font-light tracking-tight mb-1 md:mb-2">Visão Geral</h2>
-            <p className="text-white/50 text-sm md:text-base">Acompanhe suas finanças categorizadas automaticamente.</p>
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="p-3 bg-cyan-100/10 text-cyan-100 rounded-2xl border border-cyan-100/20 shrink-0">
+              <LayoutDashboard className="w-6 h-6" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-2xl md:text-3xl font-light tracking-tight mb-1 truncate">Dashboard</h2>
+              <p className="text-white/50 text-sm truncate">Acompanhe suas finanças categorizadas automaticamente.</p>
+            </div>
           </div>
           <button 
             onClick={() => onOpenImportModal()}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-100/10 hover:bg-cyan-100/20 text-cyan-50 border border-cyan-100/20 rounded-xl transition-all font-medium text-sm md:text-base backdrop-blur-md shadow-xl"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-cyan-50 border border-white/10 rounded-xl transition-all font-medium text-sm md:text-base shadow-xl"
           >
             <UploadCloud className="w-4 h-4 md:w-5 md:h-5" />
             Importar extrato
@@ -123,7 +129,7 @@ export default function Dashboard({ appData, onProcessFile, onOpenImportModal }:
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-          <div className="bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-3xl p-5 md:p-6 relative overflow-hidden">
+          <div className="bg-zinc-900 border border-white/10 shadow-xl rounded-2xl md:rounded-3xl p-5 md:p-6 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 md:p-6 opacity-20 text-cyan-100">
               <DollarSign className="w-12 h-12 md:w-16 md:h-16" />
             </div>
@@ -131,7 +137,7 @@ export default function Dashboard({ appData, onProcessFile, onOpenImportModal }:
             <h3 className="text-2xl md:text-3xl font-semibold text-cyan-50">{formatCurrency(balance)}</h3>
           </div>
           
-          <div className="bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-3xl p-5 md:p-6 relative overflow-hidden">
+          <div className="bg-zinc-900 border border-white/10 shadow-xl rounded-3xl p-5 md:p-6 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 md:p-6 opacity-20 text-emerald-400">
               <TrendingUp className="w-12 h-12 md:w-16 md:h-16" />
             </div>
@@ -139,7 +145,7 @@ export default function Dashboard({ appData, onProcessFile, onOpenImportModal }:
             <h3 className="text-2xl md:text-3xl font-semibold text-emerald-300">{formatCurrency(income)}</h3>
           </div>
 
-          <div className="bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-3xl p-5 md:p-6 relative overflow-hidden sm:col-span-2 md:col-span-1">
+          <div className="bg-zinc-900 border border-white/10 shadow-xl rounded-2xl md:rounded-3xl p-5 md:p-6 relative overflow-hidden sm:col-span-2 md:col-span-1">
             <div className="absolute top-0 right-0 p-4 md:p-6 opacity-20 text-rose-400">
               <TrendingDown className="w-12 h-12 md:w-16 md:h-16" />
             </div>
@@ -150,91 +156,99 @@ export default function Dashboard({ appData, onProcessFile, onOpenImportModal }:
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           {/* Chart */}
-          <div className="lg:col-span-1 bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-3xl p-5 md:p-6 flex flex-col">
-            <h3 className="text-base md:text-lg font-medium mb-4 md:mb-6 text-cyan-50">Despesas por Categoria</h3>
-            <div className="flex-1 min-h-[200px] md:min-h-[250px] relative">
-              {categoryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={70}
-                      paddingAngle={5}
-                      dataKey="value"
-                      stroke="none"
+          <div className="lg:col-span-1 bg-zinc-900 border border-white/10 shadow-xl rounded-2xl md:rounded-3xl p-5 md:p-6 flex flex-col">
+            <div className="flex items-center gap-3 mb-6">
+              <PieChartIcon className="w-5 h-5 text-cyan-100" />
+              <h3 className="text-base md:text-lg font-medium text-cyan-50">Despesas por Categoria</h3>
+            </div>
+            <div className="flex flex-col gap-8">
+              <div className="h-[250px] relative">
+                {categoryData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={categoryData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {categoryData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={getCategoryHexColor(entry.name)} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value: number) => formatCurrency(value)}
+                        contentStyle={{ backgroundColor: 'rgba(24, 24, 27, 0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }}
+                        itemStyle={{ color: '#fff' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white/40 text-sm">
+                    <div className="w-32 h-32 rounded-full border-4 border-white/5 border-dashed mb-4" />
+                    <p>Sem dados para exibir</p>
+                  </div>
+                )}
+              </div>
+              {categoryData.length > 0 && (
+                <div className="space-y-1 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
+                  {categoryData.map((cat, idx) => (
+                    <div 
+                      key={cat.name} 
+                      className="flex flex-col cursor-pointer group"
+                      onMouseEnter={() => setActiveCategory(cat.name)}
+                      onMouseLeave={() => setActiveCategory(null)}
+                      onClick={() => setActiveCategory(activeCategory === cat.name ? null : cat.name)}
                     >
-                      {categoryData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={getCategoryHexColor(entry.name)} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value: number) => formatCurrency(value)}
-                      contentStyle={{ backgroundColor: 'rgba(24, 24, 27, 0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }}
-                      itemStyle={{ color: '#fff' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-white/40 text-sm">
-                  <div className="w-32 h-32 rounded-full border-4 border-white/5 border-dashed mb-4" />
-                  <p>Sem dados para exibir</p>
+                      <div className="flex items-center justify-between text-xs md:text-sm p-2 rounded-xl hover:bg-zinc-800 transition-colors">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full" style={{ backgroundColor: getCategoryHexColor(cat.name) }} />
+                          <span className="text-white/70 truncate max-w-[100px] md:max-w-[120px] group-hover:text-cyan-50 transition-colors">{cat.name}</span>
+                        </div>
+                        <span className="font-medium group-hover:text-cyan-50 transition-colors">{formatCurrency(cat.value)}</span>
+                      </div>
+                      
+                      <AnimatePresence>
+                        {activeCategory === cat.name && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="mt-1 mb-2 mx-2 p-3 bg-zinc-800 border border-white/10 shadow-xl rounded-xl">
+                              <p className="text-xs text-white/70 leading-relaxed">
+                                {CATEGORY_DESCRIPTIONS[cat.name] || 'Despesas ou receitas associadas a esta categoria.'}
+                              </p>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
-            {categoryData.length > 0 && (
-              <div className="mt-4 space-y-1 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
-                {categoryData.map((cat, idx) => (
-                  <div 
-                    key={cat.name} 
-                    className="flex flex-col cursor-pointer group"
-                    onMouseEnter={() => setActiveCategory(cat.name)}
-                    onMouseLeave={() => setActiveCategory(null)}
-                    onClick={() => setActiveCategory(activeCategory === cat.name ? null : cat.name)}
-                  >
-                    <div className="flex items-center justify-between text-xs md:text-sm p-2 rounded-xl hover:bg-white/5 transition-colors">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full" style={{ backgroundColor: getCategoryHexColor(cat.name) }} />
-                        <span className="text-white/70 truncate max-w-[100px] md:max-w-[120px] group-hover:text-cyan-50 transition-colors">{cat.name}</span>
-                      </div>
-                      <span className="font-medium group-hover:text-cyan-50 transition-colors">{formatCurrency(cat.value)}</span>
-                    </div>
-                    
-                    <AnimatePresence>
-                      {activeCategory === cat.name && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="mt-1 mb-2 mx-2 p-3 bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-xl">
-                            <p className="text-xs text-white/70 leading-relaxed">
-                              {CATEGORY_DESCRIPTIONS[cat.name] || 'Despesas ou receitas associadas a esta categoria.'}
-                            </p>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Recent Transactions Table */}
-          <div className="lg:col-span-2 bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-3xl p-5 md:p-6 flex flex-col h-[400px] md:h-[500px]">
-            <h3 className="text-base md:text-lg font-medium mb-4 md:mb-6 text-cyan-50">Transações Recentes</h3>
-            <div className="overflow-auto custom-scrollbar flex-1 relative">
+          <div className="lg:col-span-2 bg-zinc-900 border border-white/10 shadow-xl rounded-2xl md:rounded-3xl p-5 md:p-6 flex flex-col h-[400px] md:h-[500px]">
+            <div className="flex items-center gap-3 mb-6">
+              <ListOrdered className="w-5 h-5 text-cyan-100" />
+              <h3 className="text-base md:text-lg font-medium text-cyan-50">Transações Recentes</h3>
+            </div>
+            <div className="overflow-x-auto custom-scrollbar flex-1 relative w-full">
               {isEmpty ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white/40">
                   <UploadCloud className="w-12 h-12 mb-4 opacity-50" />
                   <p>Importe seu extrato bancário para começar a analisar suas finanças.</p>
                 </div>
               ) : (
-                <table className="w-full text-left border-collapse min-w-[600px]">
+                <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
                     <tr className="border-b border-white/10 text-white/50 text-sm">
                       <th className="pb-3 font-medium w-10"></th>
@@ -247,7 +261,7 @@ export default function Dashboard({ appData, onProcessFile, onOpenImportModal }:
                   </thead>
                   <tbody className="text-sm md:text-base">
                     {transactions.slice(0, 50).map((tx) => (
-                      <tr key={tx.id} className="border-b border-white/5 hover:bg-white/5 transition-colors group">
+                      <tr key={tx.id} className="border-b border-white/5 hover:bg-zinc-800/50 transition-colors group">
                         <td className="py-3 px-2">
                           <div className={`p-1.5 md:p-2 rounded-lg inline-flex ${tx.flow === 'INFLOW' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
                             {tx.flow === 'INFLOW' ? <ArrowDownRight className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
@@ -258,7 +272,7 @@ export default function Dashboard({ appData, onProcessFile, onOpenImportModal }:
                           {tx.cleanName || tx.description || 'Desconhecido'}
                         </td>
                         <td className="py-3 px-2 text-white/70">
-                          <span className="px-2.5 py-1 rounded-md bg-white/5 border border-white/5 text-xs whitespace-nowrap">
+                          <span className="px-2.5 py-1 rounded-md bg-zinc-800 border border-white/5 text-xs whitespace-nowrap">
                             {tx.paymentMethod || 'Outros'}
                           </span>
                         </td>
@@ -281,8 +295,11 @@ export default function Dashboard({ appData, onProcessFile, onOpenImportModal }:
 
         {/* Resumo Mensal */}
         {monthlyData.length > 0 && (
-          <div className="bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-3xl p-5 md:p-6 flex flex-col">
-            <h3 className="text-base md:text-lg font-medium mb-4 md:mb-6 text-cyan-50">Resumo Mensal</h3>
+          <div className="bg-zinc-900 border border-white/10 shadow-xl rounded-2xl md:rounded-3xl p-5 md:p-6 flex flex-col">
+            <div className="flex items-center gap-3 mb-6">
+              <TrendingUp className="w-5 h-5 text-cyan-100" />
+              <h3 className="text-base md:text-lg font-medium text-cyan-50">Resumo Mensal</h3>
+            </div>
             <div className="w-full h-[300px] md:h-[350px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>

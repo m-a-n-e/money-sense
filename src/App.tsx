@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import TransactionsList from './components/TransactionsList';
 import GlobalAssistant from './components/GlobalAssistant';
+import AlertDialog from './components/AlertDialog';
 import { parseBankStatement, OFXData } from './lib/parsers';
 import { categorizeTransactionsWithAI } from './lib/aiService';
 import { AnimatePresence, motion } from 'motion/react';
@@ -15,6 +16,8 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isLogoutAlertOpen, setIsLogoutAlertOpen] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -151,15 +154,20 @@ export default function App() {
     }
   };
 
+  const handleLogout = () => {
+    // Implement actual logout logic here
+    toast.success('Sessão encerrada com sucesso!');
+    // For demo purposes, we might clear local data or redirect
+  };
+
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-zinc-950 to-neutral-900 text-white font-sans selection:bg-cyan-100/30 relative flex overflow-x-hidden">
+    <div className="min-h-screen w-full bg-app-bg text-white font-sans selection:bg-cyan-100/30 relative flex overflow-x-hidden">
       <Toaster 
         position="top-right"
         toastOptions={{
           style: {
-            background: 'rgba(24, 24, 27, 0.9)',
+            background: '#18181b',
             color: '#fff',
-            backdropFilter: 'blur(10px)',
             border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: '16px',
           },
@@ -171,43 +179,64 @@ export default function App() {
           },
         }} 
       />
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       
-      <main className="flex-1 flex flex-col relative pt-28 pb-8 min-h-screen w-full max-w-full">
-        {/* Subtle background glow */}
-        <div className="fixed top-1/4 left-1/4 w-96 h-96 bg-cyan-900/10 rounded-full blur-[120px] pointer-events-none" />
-        <div className="fixed bottom-1/4 right-1/4 w-96 h-96 bg-zinc-800/30 rounded-full blur-[120px] pointer-events-none" />
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        isCollapsed={isSidebarCollapsed} 
+        setIsCollapsed={setIsSidebarCollapsed} 
+        onLogout={() => setIsLogoutAlertOpen(true)}
+      />
+      
+      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isSidebarCollapsed ? 'pl-20' : 'pl-[260px]'}`}>
+        <main className="flex-1 flex flex-col relative pb-8 min-h-screen transition-all duration-300 ease-in-out w-full max-w-7xl mx-auto px-4 md:px-8">
+          <AnimatePresence>
+            {isProcessing && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-50 bg-black/40 flex items-center justify-center"
+              >
+                <div className="loadingspinner">
+                  <div id="square1"></div>
+                  <div id="square2"></div>
+                  <div id="square3"></div>
+                  <div id="square4"></div>
+                  <div id="square5"></div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        <AnimatePresence>
-          {isProcessing && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center"
-            >
-              <div className="loadingspinner">
-                <div id="square1"></div>
-                <div id="square2"></div>
-                <div id="square3"></div>
-                <div id="square4"></div>
-                <div id="square5"></div>
-              </div>
-            </motion.div>
+          {!isProcessing && activeTab === 'dashboard' && (
+            <Dashboard 
+              appData={appData} 
+              onProcessFile={processFile} 
+              onOpenImportModal={() => setIsImportModalOpen(true)} 
+            />
           )}
-        </AnimatePresence>
+          {!isProcessing && activeTab === 'transactions' && (
+            <TransactionsList 
+              appData={appData} 
+              onUpdateCategory={updateTransactionCategory} 
+              onDeleteTransactions={deleteTransactions}
+            />
+          )}
+        </main>
 
-        {!isProcessing && activeTab === 'dashboard' && (
-          <Dashboard appData={appData} onProcessFile={processFile} onOpenImportModal={() => setIsImportModalOpen(true)} />
-        )}
-        {!isProcessing && activeTab === 'transactions' && (
-          <TransactionsList 
-            appData={appData} 
-            onUpdateCategory={updateTransactionCategory} 
-            onDeleteTransactions={deleteTransactions}
-          />
-        )}
-      </main>
+      </div>
+
+      <AlertDialog 
+        isOpen={isLogoutAlertOpen}
+        onClose={() => setIsLogoutAlertOpen(false)}
+        onConfirm={handleLogout}
+        title="Encerrar Sessão"
+        description="Você tem certeza que deseja sair da sua conta? Todas as alterações não salvas podem ser perdidas."
+        confirmText="Sair agora"
+        cancelText="Continuar logado"
+        variant="danger"
+      />
 
       <GlobalAssistant appData={appData} />
 
@@ -226,17 +255,14 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
           >
             <motion.div 
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-zinc-900/80 backdrop-blur-xl border border-white/10 shadow-2xl rounded-[32px] p-6 md:p-8 max-w-lg w-full relative overflow-y-auto max-h-[90vh] custom-scrollbar"
+              className="bg-zinc-900 border border-white/10 shadow-2xl rounded-[32px] p-6 md:p-8 max-w-lg w-full relative overflow-y-auto max-h-[90vh] custom-scrollbar"
             >
-              {/* Background Glow */}
-              <div className="absolute -top-24 -right-24 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-              
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
                   <div className="p-3 bg-cyan-500/20 text-cyan-300 rounded-2xl">
@@ -263,11 +289,11 @@ export default function App() {
                 className={`relative group cursor-pointer border-2 border-dashed rounded-3xl p-6 md:p-10 flex flex-col items-center justify-center gap-4 transition-all duration-300 ${
                   isDragging 
                     ? 'border-cyan-400 bg-cyan-400/5 scale-[1.02]' 
-                    : 'border-white/10 hover:border-white/20 hover:bg-white/5'
+                    : 'border-white/10 hover:border-white/20 hover:bg-zinc-900'
                 }`}
               >
                 <div className={`p-5 rounded-full transition-all duration-300 ${
-                  isDragging ? 'bg-cyan-400/20 text-cyan-300 scale-110' : 'bg-white/5 text-white/30 group-hover:text-white/50 group-hover:scale-110'
+                  isDragging ? 'bg-cyan-400/20 text-cyan-300 scale-110' : 'bg-zinc-900 text-white/30 group-hover:text-white/50 group-hover:scale-110'
                 }`}>
                   <FileText className="w-10 h-10" />
                 </div>
@@ -278,7 +304,7 @@ export default function App() {
                 
                 <div className="flex gap-2 mt-2">
                   {['.OFX', '.CSV', '.PDF'].map(ext => (
-                    <span key={ext} className="px-2 py-1 bg-white/5 border border-white/10 rounded-lg text-[10px] font-mono text-white/40 group-hover:text-white/60 transition-colors">
+                    <span key={ext} className="px-2 py-1 bg-zinc-800 border border-white/10 rounded-lg text-[10px] font-mono text-white/40 group-hover:text-white/60 transition-colors">
                       {ext}
                     </span>
                   ))}
@@ -286,7 +312,7 @@ export default function App() {
               </div>
 
               <div className="mt-8 flex flex-col gap-4">
-                <div className="flex items-start gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
+                <div className="flex items-start gap-3 p-4 bg-zinc-900 rounded-2xl border border-white/5">
                   <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-1.5 shrink-0" />
                   <p className="text-xs text-white/60 leading-relaxed">
                     Seus dados são processados localmente e nunca saem do seu navegador de forma insegura.
@@ -295,7 +321,7 @@ export default function App() {
                 
                 <button 
                   onClick={() => setIsImportModalOpen(false)}
-                  className="w-full py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium transition-all"
+                  className="w-full py-3.5 rounded-2xl bg-zinc-800 hover:bg-zinc-700 border border-white/10 text-white font-medium transition-all"
                 >
                   Cancelar
                 </button>

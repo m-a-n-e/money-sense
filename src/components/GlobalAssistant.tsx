@@ -86,7 +86,7 @@ const PERSONAS = [
 
 export default function GlobalAssistant({ appData }: GlobalAssistantProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isPersonaSelectorOpen, setIsPersonaSelectorOpen] = useState(false);
+  const [isFabExpanded, setIsFabExpanded] = useState(false);
   
   const [selectedPersona, setSelectedPersona] = useState<typeof PERSONAS[0]>(PERSONAS[2]); // Default to Libra (Equilibrado)
   
@@ -169,7 +169,6 @@ export default function GlobalAssistant({ appData }: GlobalAssistantProps) {
   const switchPersona = (persona: typeof PERSONAS[0]) => {
     setSelectedPersona(persona);
     localStorage.setItem('@moneysense:persona', persona.id);
-    setIsPersonaSelectorOpen(false);
     loadChatHistory(persona);
   };
 
@@ -207,214 +206,226 @@ export default function GlobalAssistant({ appData }: GlobalAssistantProps) {
   };
 
   const toggleChat = () => {
-    setIsOpen(!isOpen);
+    if (!isOpen && !isFabExpanded) {
+      setIsFabExpanded(true);
+    } else if (isFabExpanded) {
+      setIsFabExpanded(false);
+    } else {
+      setIsOpen(false);
+    }
+  };
+
+  const viewState = isOpen ? 'chat' : isFabExpanded ? 'selecting' : 'closed';
+
+  const containerClasses = {
+    closed: 'w-14 h-14 rounded-full cursor-pointer hover:bg-white/10',
+    selecting: 'w-[240px] h-auto rounded-3xl',
+    chat: 'w-full sm:w-[400px] h-full sm:h-[600px] sm:max-h-[80vh] sm:rounded-2xl'
   };
 
   return (
     <>
-      <AnimatePresence mode="wait">
-        {!isOpen ? (
-          /* Floating Action Button */
+      <AnimatePresence>
+        {/* FAB */}
+        {!isOpen && !isFabExpanded && (
           <motion.button
-            key="nexus-fab"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={toggleChat}
-            className="fixed bottom-6 right-6 z-50 p-4 bg-white/10 backdrop-blur-md border border-white/10 text-cyan-100 shadow-xl flex items-center justify-center overflow-hidden rounded-full"
+            key="fab"
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            onClick={() => setIsFabExpanded(true)}
+            className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-zinc-900 border border-white/10 shadow-2xl flex items-center justify-center text-cyan-100 hover:bg-zinc-800 transition-colors"
           >
             <Bot className="w-6 h-6" />
           </motion.button>
-        ) : (
-          /* Chat Window */
+        )}
+
+        {/* Selector Menu */}
+        {isFabExpanded && !isOpen && (
           <motion.div
-            key="nexus-chat-window"
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            transition={{ 
-              type: "spring", 
-              stiffness: 400, 
-              damping: 30
-            }}
-            className="fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-[100] sm:z-50 w-full sm:w-[400px] h-full sm:h-[600px] sm:max-h-[80vh] bg-zinc-950/60 sm:bg-zinc-900/40 backdrop-blur-3xl sm:backdrop-blur-xl border-0 sm:border border-white/10 shadow-2xl flex flex-col overflow-hidden origin-bottom sm:origin-bottom-right sm:rounded-2xl"
+            key="selector"
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="fixed bottom-6 right-6 z-50 w-[240px] bg-zinc-900 border border-white/10 shadow-2xl rounded-3xl flex flex-col p-2 origin-bottom-right"
+          >
+            <div className="flex items-center justify-between px-3 py-2 border-b border-white/5 mb-2">
+              <span className="text-xs font-medium text-white/50">Assistentes</span>
+              <button 
+                onClick={() => setIsFabExpanded(false)} 
+                className="text-white/50 hover:text-white p-1 rounded-md hover:bg-zinc-900 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-1">
+              {PERSONAS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => {
+                    switchPersona(p);
+                    setIsOpen(true);
+                    setIsFabExpanded(false);
+                  }}
+                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-zinc-900 transition-colors text-left"
+                >
+                  <div className={`p-2 rounded-full ${p.bgColor} ${p.color}`}>
+                    <p.icon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="block text-sm font-medium text-white">{p.robotName}</span>
+                    <span className="block text-[10px] text-white/40">{p.name}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Chat Window */}
+        {isOpen && (
+          <motion.div
+            key="chat"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-[100] sm:z-50 w-full sm:w-[400px] h-full sm:h-[600px] sm:max-h-[80vh] bg-zinc-900 border-0 sm:border border-white/10 shadow-2xl flex flex-col overflow-hidden origin-bottom sm:origin-bottom-right sm:rounded-2xl"
           >
             {/* Header */}
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="p-4 bg-white/5 border-b border-white/10 flex items-center justify-between shrink-0 relative z-50 overflow-hidden"
-            >
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => setIsPersonaSelectorOpen(!isPersonaSelectorOpen)}
-                  className={`p-2 rounded-full transition-all hover:scale-110 active:scale-95 ${selectedPersona.bgColor} ${selectedPersona.color} border ${selectedPersona.borderColor} shadow-lg shadow-black/20`}
-                >
-                  <selectedPersona.icon className="w-5 h-5" />
-                </button>
-                <div>
-                  <h2 className="text-sm font-medium text-white flex items-center gap-2">
-                    {selectedPersona.robotName}
-                  </h2>
-                  <p className="text-[10px] text-white/50 flex items-center gap-1">
-                    Perfil {selectedPersona.name}
-                    <ChevronDown className={`w-3 h-3 transition-transform ${isPersonaSelectorOpen ? 'rotate-180' : ''}`} />
-                  </p>
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="p-4 bg-zinc-900 border-b border-white/10 flex items-center justify-between shrink-0 relative z-50 overflow-hidden"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-full ${selectedPersona.bgColor} ${selectedPersona.color} border ${selectedPersona.borderColor} shadow-lg shadow-black/20`}>
+                    <selectedPersona.icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-medium text-white flex items-center gap-2">
+                      {selectedPersona.robotName}
+                    </h2>
+                    <p className="text-[10px] text-white/50 flex items-center gap-1">
+                      Perfil {selectedPersona.name}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-1">
-                <button 
-                  onClick={clearChat}
-                  title="Limpar conversa"
-                  className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-white/30 hover:text-white/60"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                </button>
-                <button 
-                  onClick={() => setIsOpen(false)}
-                  className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-white/50 hover:text-white relative z-20"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </motion.div>
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={clearChat}
+                    title="Limpar conversa"
+                    className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-white/30 hover:text-white/60"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                  <button 
+                    onClick={() => setIsOpen(false)}
+                    className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-white/50 hover:text-white relative z-20"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </motion.div>
 
-            {/* Persona Selector Overlay */}
-            <AnimatePresence>
-              {isPersonaSelectorOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="absolute inset-x-0 top-[73px] bottom-0 sm:bottom-auto z-40 p-5 bg-zinc-900 border-b border-white/10 shadow-2xl flex flex-col"
-                >
-                  <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-4 px-1">Selecione seu Assistente</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {PERSONAS.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => switchPersona(p)}
-                        className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                          selectedPersona.id === p.id 
-                            ? `${p.bgColor} ${p.borderColor} border-opacity-100 ring-1 ring-white/10` 
-                            : 'bg-white/5 border-transparent hover:bg-white/10'
-                        }`}
-                      >
-                        <div className={`p-2 rounded-lg ${p.bgColor} ${p.color}`}>
-                          <p.icon className="w-4 h-4" />
-                        </div>
-                        <div className="text-left">
-                          <span className="block text-sm font-semibold text-white">{p.robotName}</span>
-                          <span className="block text-[10px] text-white/40">{p.name}</span>
-                        </div>
-                        {selectedPersona.id === p.id && (
-                          <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white/40" />
+              {/* Content Area */}
+              <motion.div 
+                ref={scrollContainerRef}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="flex-1 overflow-y-auto overscroll-contain p-4 flex flex-col-reverse gap-6 custom-scrollbar bg-transparent"
+              >
+                <>
+                  <div ref={messagesEndRef} className="h-0" />
+                  
+                  {isLoading && (
+                    <div className="flex gap-3">
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${selectedPersona.bgColor} ${selectedPersona.color}`}>
+                        <selectedPersona.icon className="w-4 h-4" />
+                      </div>
+                      <div className="bg-zinc-900 border border-white/10 rounded-2xl rounded-tl-sm p-4 flex items-center gap-2 shadow-md">
+                        <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {[...messages].reverse().map((msg, idx) => (
+                    <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
+                        msg.role === 'user' 
+                          ? 'bg-cyan-100/20 text-cyan-100 border border-cyan-100/30' 
+                          : `${selectedPersona.bgColor} ${selectedPersona.color}`
+                      }`}>
+                        {msg.role === 'user' ? <User className="w-4 h-4" /> : <selectedPersona.icon className="w-4 h-4" />}
+                      </div>
+                      <div className={`max-w-[85%] rounded-2xl p-3.5 shadow-md ${
+                        msg.role === 'user' 
+                          ? 'bg-cyan-100/10 border border-cyan-100/20 text-cyan-50 rounded-tr-sm' 
+                          : 'bg-zinc-900 border border-white/10 text-white/90 rounded-tl-sm'
+                      }`}>
+                        {msg.role === 'user' ? (
+                          <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.text}</p>
+                        ) : (
+                          <div className="markdown-body text-sm leading-relaxed prose prose-invert max-w-none">
+                            <ReactMarkdown>{msg.text}</ReactMarkdown>
+                          </div>
                         )}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              </motion.div>
+
+              {/* Suggestions & Input Area */}
+              {selectedPersona && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="bg-zinc-900 border-t border-white/10 flex flex-col shrink-0"
+                >
+                  <div className="px-3 pt-3 pb-1 flex flex-nowrap overflow-x-auto overscroll-contain gap-2 custom-scrollbar hide-scrollbar-on-mobile">
+                    {selectedPersona.suggestions.map((sug, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setInputText(sug)}
+                        className={`flex-shrink-0 text-[11px] px-3 py-1.5 bg-zinc-800 hover:${selectedPersona.bgColor} border border-white/10 hover:${selectedPersona.borderColor} rounded-full text-white/70 hover:text-white transition-all whitespace-nowrap`}
+                      >
+                        {sug}
                       </button>
                     ))}
                   </div>
+
+                  <div className="p-3">
+                    <form 
+                      onSubmit={(e) => { e.preventDefault(); handleSendMessage(inputText); }}
+                      className="flex gap-2 relative"
+                    >
+                      <input
+                        type="text"
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                        placeholder={`Pergunte ao ${selectedPersona.robotName}...`}
+                        className="flex-1 bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-cyan-100/50 transition-colors text-white placeholder:text-white/30"
+                        disabled={isLoading}
+                      />
+                      <button
+                        type="submit"
+                        disabled={!inputText.trim() || isLoading}
+                        className="bg-cyan-100 hover:bg-cyan-50 text-black rounded-xl px-4 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    </form>
+                  </div>
                 </motion.div>
               )}
-            </AnimatePresence>
-
-            {/* Content Area */}
-            <motion.div 
-              ref={scrollContainerRef}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="flex-1 overflow-y-auto overscroll-contain p-4 flex flex-col-reverse gap-6 custom-scrollbar bg-transparent"
-            >
-              <>
-                <div ref={messagesEndRef} className="h-0" />
-                
-                {isLoading && (
-                  <div className="flex gap-3">
-                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${selectedPersona.bgColor} ${selectedPersona.color}`}>
-                      <selectedPersona.icon className="w-4 h-4" />
-                    </div>
-                    <div className="bg-white/5 border border-white/10 rounded-2xl rounded-tl-sm p-4 flex items-center gap-2 shadow-md backdrop-blur-md">
-                      <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                    </div>
-                  </div>
-                )}
-
-                {[...messages].reverse().map((msg, idx) => (
-                  <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
-                      msg.role === 'user' 
-                        ? 'bg-cyan-100/20 text-cyan-100 border border-cyan-100/30' 
-                        : `${selectedPersona.bgColor} ${selectedPersona.color}`
-                    }`}>
-                      {msg.role === 'user' ? <User className="w-4 h-4" /> : <selectedPersona.icon className="w-4 h-4" />}
-                    </div>
-                    <div className={`max-w-[85%] rounded-2xl p-3.5 shadow-md backdrop-blur-md ${
-                      msg.role === 'user' 
-                        ? 'bg-cyan-100/10 border border-cyan-100/20 text-cyan-50 rounded-tr-sm' 
-                        : 'bg-white/5 border border-white/10 text-white/90 rounded-tl-sm'
-                    }`}>
-                      {msg.role === 'user' ? (
-                        <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.text}</p>
-                      ) : (
-                        <div className="markdown-body text-sm leading-relaxed prose prose-invert max-w-none">
-                          <ReactMarkdown>{msg.text}</ReactMarkdown>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </>
-            </motion.div>
-
-            {/* Suggestions & Input Area */}
-            {selectedPersona && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="bg-white/5 border-t border-white/10 flex flex-col shrink-0 backdrop-blur-md"
-              >
-                <div className="px-3 pt-3 pb-1 flex flex-nowrap overflow-x-auto overscroll-contain gap-2 custom-scrollbar hide-scrollbar-on-mobile">
-                  {selectedPersona.suggestions.map((sug, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setInputText(sug)}
-                      className={`flex-shrink-0 text-[11px] px-3 py-1.5 bg-white/5 hover:${selectedPersona.bgColor} border border-white/10 hover:${selectedPersona.borderColor} rounded-full text-white/70 hover:text-white transition-all whitespace-nowrap`}
-                    >
-                      {sug}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="p-3">
-                  <form 
-                    onSubmit={(e) => { e.preventDefault(); handleSendMessage(inputText); }}
-                    className="flex gap-2 relative"
-                  >
-                    <input
-                      type="text"
-                      value={inputText}
-                      onChange={(e) => setInputText(e.target.value)}
-                      placeholder={`Pergunte ao ${selectedPersona.robotName}...`}
-                      className="flex-1 bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-cyan-100/50 transition-colors text-white placeholder:text-white/30"
-                      disabled={isLoading}
-                    />
-                    <button
-                      type="submit"
-                      disabled={!inputText.trim() || isLoading}
-                      className="bg-cyan-100 hover:bg-cyan-50 text-black rounded-xl px-4 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
-                  </form>
-                </div>
-              </motion.div>
-            )}
           </motion.div>
         )}
       </AnimatePresence>

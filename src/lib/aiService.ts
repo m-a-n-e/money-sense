@@ -90,7 +90,8 @@ Use estes exemplos como base para o seu raciocínio:
 - "ZARA" ou "RENNER" -> cleanName: "Zara", category: "Vestuário", paymentMethod: "Cartão"
 - "SAQUE BANCO24HORAS" -> cleanName: "Saque", category: "Outros", paymentMethod: "Saque"
 - "TED TRANSF" -> cleanName: "Transferência", category: "Transferência Enviada", paymentMethod: "Transferência"
-- "PAGAMENTO FATURA CARTAO" ou "PAGTO FATURA" -> cleanName: "Fatura Cartão", category: "Fatura", paymentMethod: "Boleto"${userCorrectionsText}
+- "PAGAMENTO FATURA CARTAO" ou "PAGTO FATURA" ou "PAGAMENTO TITULO" -> cleanName: "Fatura Cartão", category: "Fatura", paymentMethod: "Boleto"
+- "PAGAMENTO DE FATURA" -> cleanName: "Fatura Cartão", category: "Fatura", paymentMethod: "Boleto"${userCorrectionsText}
 
 === CATEGORIAS PERMITIDAS ===
 Mercado, Restaurante/Delivery, Combustível, Transporte App, Transporte Público, Contas Residenciais, Aluguel/Condomínio, Farmácia, Saúde/Consultas, Assinaturas/Streaming, Lazer/Eventos, Educação, Serviços de Software, Taxas Bancárias, Vestuário, Eletrônicos, Casa/Móveis, Investimentos, Salário, Transferência Enviada, Transferência Recebida, Petshop, Impostos, Fatura, Cuidados Pessoais, Doações, Outros.
@@ -195,7 +196,8 @@ Use estes exemplos como base para o seu raciocínio:
 - "ZARA" ou "RENNER" -> cleanName: "Zara", category: "Vestuário", paymentMethod: "Cartão"
 - "SAQUE BANCO24HORAS" -> cleanName: "Saque", category: "Outros", paymentMethod: "Saque"
 - "TED TRANSF" -> cleanName: "Transferência", category: "Transferência Enviada", paymentMethod: "Transferência"
-- "PAGAMENTO FATURA CARTAO" ou "PAGTO FATURA" -> cleanName: "Fatura Cartão", category: "Fatura", paymentMethod: "Boleto"${userCorrectionsText}
+- "PAGAMENTO FATURA CARTAO" ou "PAGTO FATURA" ou "PAGAMENTO TITULO" -> cleanName: "Fatura Cartão", category: "Fatura", paymentMethod: "Boleto"
+- "PAGAMENTO DE FATURA" -> cleanName: "Fatura Cartão", category: "Fatura", paymentMethod: "Boleto"${userCorrectionsText}
 
 === CATEGORIAS PERMITIDAS ===
 Mercado, Restaurante/Delivery, Combustível, Transporte App, Transporte Público, Contas Residenciais, Aluguel/Condomínio, Farmácia, Saúde/Consultas, Assinaturas/Streaming, Lazer/Eventos, Educação, Serviços de Software, Taxas Bancárias, Vestuário, Eletrônicos, Casa/Móveis, Investimentos, Salário, Transferência Enviada, Transferência Recebida, Petshop, Impostos, Fatura, Cuidados Pessoais, Doações, Outros.
