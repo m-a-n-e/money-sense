@@ -4,11 +4,14 @@ import Dashboard from './components/Dashboard';
 import TransactionsList from './components/TransactionsList';
 import GlobalAssistant from './components/GlobalAssistant';
 import AlertDialog from './components/AlertDialog';
-import { parseBankStatement, OFXData } from './lib/parsers';
+import { OFXData } from './lib/parsers';
+import { parseOFX } from './lib/parsers/ofxParser';
+import { parseCSVLocal } from './lib/parsers/csvParser';
+import { parsePDF } from './lib/parsers/pdfParser';
 import { categorizeTransactionsWithAI } from './lib/aiService';
 import { AnimatePresence, motion } from 'motion/react';
 import { Toaster, toast } from 'react-hot-toast';
-import { UploadCloud, X, FileText } from 'lucide-react';
+import { UploadCloud, X, FileText, Menu, Sparkles, Loader2 } from 'lucide-react';
 
 export default function App() {
   const [appData, setAppData] = useState<OFXData | null>(null);
@@ -18,7 +21,17 @@ export default function App() {
   const [isDragging, setIsDragging] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isLogoutAlertOpen, setIsLogoutAlertOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('@moneysense:data');
@@ -65,29 +78,59 @@ export default function App() {
     toast.success(`${ids.length} transaç${ids.length === 1 ? 'ão excluída' : 'ões excluídas'} com sucesso!`);
   };
 
-  const processFile = async (file: File) => {
+  const [privacyMessage, setPrivacyMessage] = useState<string>('');
+  const [loadingState, setLoadingState] = useState<'local' | 'ai' | null>(null);
+
+  const processFiles = async (files: File[]) => {
+    if (files.length === 0) return;
+    
     setIsProcessing(true);
+    setImportProgress(0);
+
+    const progressInterval = setInterval(() => {
+      setImportProgress(prev => {
+        const next = prev + Math.random() * 10;
+        return next > 95 ? 95 : next;
+      });
+    }, 400);
 
     try {
-      const parsedData = await parseBankStatement(file);
-      
-      const existingIds = new Set(appData?.transactions.map(t => t.id) || []);
-      const newTransactionsRaw = parsedData.transactions.filter(t => !existingIds.has(t.id));
+      let allNewTransactions: any[] = [];
+      let finalBalance: number | null = null;
+      let finalCurrency = 'BRL';
 
-      if (newTransactionsRaw.length === 0) {
-        toast.error('Nenhuma transação nova encontrada.');
-        setIsProcessing(false);
-        return;
+      for (const file of files) {
+        const ext = file.name.toLowerCase().split('.').pop();
+        let result: any;
+
+        if (ext === 'ofx') {
+          setLoadingState('local');
+          setPrivacyMessage("🟢 Arquivo suportado nativamente. Processamento 100% local.");
+          result = await parseOFX(file);
+        } else if (ext === 'csv') {
+          setLoadingState('local');
+          setPrivacyMessage("🟢 Arquivo suportado nativamente. Processamento 100% local.");
+          result = await parseCSVLocal(file);
+        } else if (ext === 'pdf') {
+          setLoadingState('ai');
+          setPrivacyMessage("✨ Lendo PDF com Inteligência Artificial na nuvem.");
+          result = await parsePDF(file);
+        } else {
+          continue;
+        }
+
+        if (result.balance !== null) finalBalance = result.balance;
+        if (result.currency) finalCurrency = result.currency;
+
+        // Categorize transactions
+        allNewTransactions = [...allNewTransactions, ...result.transactions];
       }
 
-      let processedTransactions = [];
-
-      // If it's OFX, we still need to categorize the new transactions with AI
-      // (CSV and PDF already come categorized from the AI-based parser)
-      if (file.name.toLowerCase().endsWith('.ofx')) {
-        const aiResults = await categorizeTransactionsWithAI(newTransactionsRaw);
+      // Batch categorize all new transactions in one AI call
+      if (allNewTransactions.length > 0) {
+        const aiResults = await categorizeTransactionsWithAI(allNewTransactions);
         
-        processedTransactions = newTransactionsRaw.map(tx => {
+        allNewTransactions = allNewTransactions.map(tx => {
           const aiMatch = aiResults.find(r => r.id === tx.id);
           return {
             ...tx,
@@ -96,29 +139,46 @@ export default function App() {
             paymentMethod: aiMatch?.paymentMethod || tx.paymentMethod || 'Outros'
           };
         });
-      } else {
-        // CSV/PDF already have category, cleanName, etc. from the parser
-        processedTransactions = newTransactionsRaw;
+      }
+
+      if (allNewTransactions.length === 0) {
+        toast.error('Nenhuma transação nova encontrada nos arquivos.');
+        clearInterval(progressInterval);
+        setIsProcessing(false);
+        return;
       }
 
       setAppData(prev => {
-        const allTransactions = [...(prev?.transactions || []), ...processedTransactions];
-        allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const allTransactions = [...(prev?.transactions || []), ...allNewTransactions];
+        const uniqueTransactions = Array.from(new Map(allTransactions.map(tx => [tx.id, tx])).values());
+        uniqueTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
         return {
-          balance: parsedData.balance ?? prev?.balance ?? 0,
-          currency: parsedData.currency ?? prev?.currency ?? 'BRL',
-          transactions: allTransactions
+          balance: finalBalance ?? prev?.balance ?? 0,
+          currency: finalCurrency ?? prev?.currency ?? 'BRL',
+          transactions: uniqueTransactions
         };
       });
       
-      toast.success('Extrato importado e analisado com sucesso!');
-      setActiveTab('dashboard');
+      clearInterval(progressInterval);
+      setImportProgress(100);
+      
+      setTimeout(() => {
+        toast.success(`${allNewTransactions.length} transações importadas com sucesso!`);
+        setActiveTab('dashboard');
+        setIsProcessing(false);
+        setImportProgress(0);
+        setLoadingState(null);
+        setPrivacyMessage('');
+      }, 500);
     } catch (error) {
-      console.error("Error processing file:", error);
-      toast.error(error instanceof Error ? error.message : 'Erro ao processar o arquivo.');
-    } finally {
+      console.error("Error processing files:", error);
+      clearInterval(progressInterval);
+      toast.error(error instanceof Error ? error.message : 'Erro ao processar os arquivos.');
       setIsProcessing(false);
+      setImportProgress(0);
+      setLoadingState(null);
+      setPrivacyMessage('');
     }
   };
 
@@ -136,20 +196,24 @@ export default function App() {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      const ext = file.name.toLowerCase().split('.').pop();
-      if (['ofx', 'csv', 'pdf'].includes(ext || '')) {
-        processFile(file);
+      const files = Array.from(e.dataTransfer.files);
+      const validFiles = files.filter(file => {
+        const ext = file.name.toLowerCase().split('.').pop();
+        return ['ofx', 'csv', 'pdf'].includes(ext || '');
+      });
+
+      if (validFiles.length > 0) {
+        processFiles(validFiles);
         setIsImportModalOpen(false);
       } else {
-        toast.error('Formato não suportado. Use OFX, CSV ou PDF.');
+        toast.error('Nenhum arquivo suportado encontrado. Use OFX, CSV ou PDF.');
       }
     }
   };
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      processFile(e.target.files[0]);
+      processFiles(Array.from(e.target.files));
       setIsImportModalOpen(false);
     }
   };
@@ -162,6 +226,24 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full bg-app-bg text-white font-sans selection:bg-cyan-100/30 relative flex overflow-x-hidden">
+      {isMobile && (
+        <header className="h-16 bg-zinc-800 border-b border-white/5 flex items-center justify-between px-4 fixed top-0 left-0 right-0 z-30">
+          <div className="flex items-center gap-3">
+            <div className="w-8 flex justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-cyan-100">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            <span className="font-zalando font-black text-xl tracking-tight text-white whitespace-nowrap">
+              money<span className="text-cyan-100">Sense.</span>
+            </span>
+          </div>
+          <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 text-white/50 hover:text-white">
+            <Menu className="w-6 h-6" />
+          </button>
+        </header>
+      )}
+
       <Toaster 
         position="top-right"
         toastOptions={{
@@ -182,41 +264,30 @@ export default function App() {
       
       <Sidebar 
         activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+        setActiveTab={(tab) => {
+          setActiveTab(tab);
+          if (isMobile) setIsMobileMenuOpen(false);
+        }} 
         isCollapsed={isSidebarCollapsed} 
         setIsCollapsed={setIsSidebarCollapsed} 
         onLogout={() => setIsLogoutAlertOpen(true)}
+        isMobile={isMobile}
+        isMobileMenuOpen={isMobileMenuOpen}
+        setIsMobileMenuOpen={setIsMobileMenuOpen}
       />
       
-      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isSidebarCollapsed ? 'pl-20' : 'pl-[260px]'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isMobile ? 'pt-16 pl-0' : (isSidebarCollapsed ? 'pl-20' : 'pl-[260px]')}`}>
         <main className="flex-1 flex flex-col relative pb-8 min-h-screen transition-all duration-300 ease-in-out w-full max-w-7xl mx-auto px-4 md:px-8">
-          <AnimatePresence>
-            {isProcessing && (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 z-50 bg-black/40 flex items-center justify-center"
-              >
-                <div className="loadingspinner">
-                  <div id="square1"></div>
-                  <div id="square2"></div>
-                  <div id="square3"></div>
-                  <div id="square4"></div>
-                  <div id="square5"></div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {!isProcessing && activeTab === 'dashboard' && (
+          {activeTab === 'dashboard' && (
             <Dashboard 
               appData={appData} 
-              onProcessFile={processFile} 
-              onOpenImportModal={() => setIsImportModalOpen(true)} 
+              onProcessFile={(file) => processFiles([file])} 
+              onOpenImportModal={() => setIsImportModalOpen(true)}
+              isProcessing={isProcessing}
+              importProgress={importProgress}
             />
           )}
-          {!isProcessing && activeTab === 'transactions' && (
+          {activeTab === 'transactions' && (
             <TransactionsList 
               appData={appData} 
               onUpdateCategory={updateTransactionCategory} 
@@ -245,6 +316,7 @@ export default function App() {
         ref={fileInputRef}
         onChange={onFileChange}
         accept=".ofx,.csv,.pdf"
+        multiple
         className="hidden"
       />
 
@@ -261,7 +333,7 @@ export default function App() {
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-zinc-900 border border-white/10 shadow-2xl rounded-[32px] p-6 md:p-8 max-w-lg w-full relative overflow-y-auto max-h-[90vh] custom-scrollbar"
+              className="bg-zinc-800 border border-white/5 rounded-[32px] p-8 md:p-10 max-w-lg w-full relative overflow-y-auto max-h-[90vh] custom-scrollbar"
             >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
@@ -269,8 +341,8 @@ export default function App() {
                     <UploadCloud className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-medium text-white">Importar Extrato</h3>
-                    <p className="text-white/50 text-xs">Selecione seu arquivo bancário</p>
+                    <h3 className="text-xl font-medium text-white">Importar Extratos</h3>
+                    <p className="text-white/50 text-xs">Selecione seus arquivos bancários (OFX, CSV ou PDF)</p>
                   </div>
                 </div>
                 <button 
@@ -289,16 +361,16 @@ export default function App() {
                 className={`relative group cursor-pointer border-2 border-dashed rounded-3xl p-6 md:p-10 flex flex-col items-center justify-center gap-4 transition-all duration-300 ${
                   isDragging 
                     ? 'border-cyan-400 bg-cyan-400/5 scale-[1.02]' 
-                    : 'border-white/10 hover:border-white/20 hover:bg-zinc-900'
+                    : 'border-white/10 hover:border-white/20 hover:bg-zinc-800'
                 }`}
               >
                 <div className={`p-5 rounded-full transition-all duration-300 ${
-                  isDragging ? 'bg-cyan-400/20 text-cyan-300 scale-110' : 'bg-zinc-900 text-white/30 group-hover:text-white/50 group-hover:scale-110'
+                  isDragging ? 'bg-cyan-400/20 text-cyan-300 scale-110' : 'bg-zinc-800 text-white/30 group-hover:text-white/50 group-hover:scale-110'
                 }`}>
                   <FileText className="w-10 h-10" />
                 </div>
                 <div className="text-center">
-                  <p className="text-white font-medium mb-1">Arraste seu arquivo aqui</p>
+                  <p className="text-white font-medium mb-1">Arraste seus arquivos aqui</p>
                   <p className="text-white/40 text-sm">Ou clique para navegar no computador</p>
                 </div>
                 
@@ -312,19 +384,28 @@ export default function App() {
               </div>
 
               <div className="mt-8 flex flex-col gap-4">
-                <div className="flex items-start gap-3 p-4 bg-zinc-900 rounded-2xl border border-white/5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-1.5 shrink-0" />
-                  <p className="text-xs text-white/60 leading-relaxed">
-                    Seus dados são processados localmente e nunca saem do seu navegador de forma insegura.
-                  </p>
-                </div>
+                {privacyMessage && (
+                  <div className="flex items-start gap-3 p-4 bg-zinc-800 rounded-2xl border border-white/5">
+                    <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${loadingState === 'ai' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                    <p className="text-xs text-white/60 leading-relaxed">
+                      {privacyMessage}
+                    </p>
+                  </div>
+                )}
                 
-                <button 
-                  onClick={() => setIsImportModalOpen(false)}
-                  className="w-full py-3.5 rounded-2xl bg-zinc-800 hover:bg-zinc-700 border border-white/10 text-white font-medium transition-all"
-                >
-                  Cancelar
-                </button>
+                {isProcessing ? (
+                  <div className="w-full py-3.5 rounded-2xl bg-zinc-800 border border-white/10 text-white font-medium flex items-center justify-center gap-2">
+                    {loadingState === 'ai' ? <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" /> : <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />}
+                    <span>Processando...</span>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => setIsImportModalOpen(false)}
+                    className="w-full py-3.5 rounded-2xl bg-zinc-800 hover:bg-zinc-700 border border-white/10 text-white font-medium transition-all"
+                  >
+                    Cancelar
+                  </button>
+                )}
               </div>
             </motion.div>
           </motion.div>

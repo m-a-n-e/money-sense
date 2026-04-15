@@ -1,5 +1,5 @@
 import { parseOFX, OFXData } from './ofxParser';
-import { parseCSV } from './csvParser';
+import { parseCSVLocal } from './csvParser';
 import { parsePDF } from './pdfParser';
 
 export type { OFXData, OFXTransaction } from './ofxParser';
@@ -10,7 +10,7 @@ export async function parseBankStatement(file: File): Promise<OFXData> {
   if (fileName.endsWith('.ofx')) {
     return await parseOFX(file);
   } else if (fileName.endsWith('.csv')) {
-    return await parseCSV(file);
+    return await parseCSVLocal(file);
   } else if (fileName.endsWith('.pdf')) {
     return await parsePDF(file);
   } else {

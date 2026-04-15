@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { OFXData } from '../lib/parsers';
 import { ArrowDownRight, ArrowUpRight, Search, Filter, ChevronDown, Trash2, AlertTriangle, ListOrdered, X } from 'lucide-react';
 import { getCategoryColor, CATEGORY_COLORS } from '../lib/categoryColors';
+import { formatDateBR } from '../lib/utils';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -19,8 +20,24 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [categorySearch, setCategorySearch] = useState('');
   const [openFilter, setOpenFilter] = useState<'month' | 'category' | 'type' | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  const [dropdownPos, setDropdownPos] = useState<{top: number, left: number, up: boolean} | null>(null);
   
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const handleScroll = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target?.closest?.('.category-dropdown-content')) return;
+      if (editingCategoryId) {
+        setEditingCategoryId(null);
+        setDropdownPos(null);
+      }
+    };
+    window.addEventListener('scroll', handleScroll, true);
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, [editingCategoryId]);
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
@@ -63,6 +80,7 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
 
   useEffect(() => {
     setSelectedIds(new Set());
+    setCurrentPage(1);
   }, [searchTerm, selectedCategory, selectedType, selectedMonth]);
 
   const handleFilterChange = (setter: React.Dispatch<React.SetStateAction<string>>, value: string, filterName: string) => {
@@ -105,6 +123,9 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
 
   const allCategories = Object.keys(CATEGORY_COLORS).sort();
 
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const paginatedTransactions = filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   if (transactions.length === 0) {
     return (
       <div className="w-full p-4 md:p-8 z-10 flex flex-col items-center justify-center min-h-[60vh]">
@@ -117,10 +138,8 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
     <div className="w-full px-4 py-6 md:p-8 z-10">
       <div className="w-full max-w-6xl mx-auto space-y-6 md:space-y-8">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="p-3 bg-cyan-100/10 text-cyan-100 rounded-2xl border border-cyan-100/20 shrink-0">
-              <ListOrdered className="w-6 h-6" />
-            </div>
+          <div className="flex items-start gap-4 min-w-0">
+            <ListOrdered className="w-8 h-8 text-cyan-100 mt-1 shrink-0" />
             <div className="min-w-0">
               <h2 className="text-2xl md:text-3xl font-light tracking-tight mb-1 truncate">Transações</h2>
               <p className="text-white/50 text-sm truncate">Histórico completo de movimentações.</p>
@@ -131,7 +150,7 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
           </div>
         </header>
 
-        <div className="bg-zinc-900 border border-white/10 shadow-xl rounded-2xl md:rounded-3xl p-4 md:p-6 flex flex-col gap-6 w-full min-w-0">
+        <div className="bg-zinc-800 border border-white/5 rounded-2xl md:rounded-3xl p-6 md:p-8 flex flex-col gap-6 w-full min-w-0">
           
           <div className="flex flex-col gap-4 w-full">
             <div className="relative w-full">
@@ -141,7 +160,7 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
                 placeholder="Buscar transação..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2.5 bg-zinc-800 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-cyan-100/50 transition-colors w-full"
+                className="pl-10 pr-4 py-2.5 bg-black/20 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-cyan-100/50 transition-colors w-full"
               />
             </div>
             
@@ -150,7 +169,7 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
               <div className="relative w-full">
                 <button 
                   onClick={() => setOpenFilter(openFilter === 'month' ? null : 'month')}
-                  className="w-full px-3 py-2.5 bg-zinc-800 border border-white/10 rounded-xl text-xs focus:outline-none focus:border-cyan-100/50 transition-colors text-white/70 flex items-center justify-between"
+                  className="w-full px-3 py-2.5 bg-black/20 border border-white/10 rounded-xl text-xs focus:outline-none focus:border-cyan-100/50 transition-colors text-white/70 flex items-center justify-between"
                 >
                   <span className="truncate">
                     {selectedMonth === 'all' ? 'Todos os Meses' : (() => {
@@ -171,11 +190,11 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         transition={{ duration: 0.15, ease: "easeOut" }}
-                        className="absolute z-50 top-full left-0 mt-1 w-full min-w-[180px] max-h-[250px] overflow-y-auto bg-zinc-900 border border-white/10 rounded-xl shadow-2xl p-1.5 custom-scrollbar flex flex-col gap-1"
+                        className="absolute z-50 top-full left-0 mt-1 w-full min-w-[180px] max-h-[250px] overflow-y-auto bg-zinc-800 border border-white/5 rounded-xl p-1.5 custom-scrollbar flex flex-col gap-1"
                       >
                         <button
                           onClick={() => { handleFilterChange(setSelectedMonth, 'all', 'Mês'); setOpenFilter(null); }}
-                          className={`w-full px-2.5 py-1.5 rounded-md border text-xs text-left transition-all hover:brightness-110 ${selectedMonth === 'all' ? 'bg-cyan-100/20 border-cyan-100/30 text-cyan-100' : 'bg-zinc-800 border-white/5 text-white/70 hover:text-white'}`}
+                          className={`w-full px-2.5 py-1.5 rounded-md border text-xs text-left transition-all hover:brightness-110 ${selectedMonth === 'all' ? 'bg-cyan-100/20 border-cyan-100/30 text-cyan-100' : 'bg-black/20 border-white/5 text-white/70 hover:text-white'}`}
                         >
                           Todos os Meses
                         </button>
@@ -188,7 +207,7 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
                             <button
                               key={m}
                               onClick={() => { handleFilterChange(setSelectedMonth, m, 'Mês'); setOpenFilter(null); }}
-                              className={`w-full px-2.5 py-1.5 rounded-md border text-xs text-left transition-all hover:brightness-110 ${selectedMonth === m ? 'bg-cyan-100/20 border-cyan-100/30 text-cyan-100' : 'bg-zinc-800 border-white/5 text-white/70 hover:text-white'}`}
+                              className={`w-full px-2.5 py-1.5 rounded-md border text-xs text-left transition-all hover:brightness-110 ${selectedMonth === m ? 'bg-cyan-100/20 border-cyan-100/30 text-cyan-100' : 'bg-black/20 border-white/5 text-white/70 hover:text-white'}`}
                             >
                               {formattedLabel}
                             </button>
@@ -207,7 +226,7 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
                     setOpenFilter(openFilter === 'category' ? null : 'category');
                     setCategorySearch('');
                   }}
-                  className={`w-full px-3 py-2.5 rounded-xl border text-xs focus:outline-none focus:border-cyan-100/50 transition-colors flex items-center justify-between ${selectedCategory === 'all' ? 'bg-zinc-800 border-white/10 text-white/70' : getCategoryColor(selectedCategory)}`}
+                  className={`w-full px-3 py-2.5 rounded-xl border text-xs focus:outline-none focus:border-cyan-100/50 transition-colors flex items-center justify-between ${selectedCategory === 'all' ? 'bg-black/20 border-white/10 text-white/70' : getCategoryColor(selectedCategory)}`}
                 >
                   <span className="truncate">{selectedCategory === 'all' ? 'Categorias' : selectedCategory}</span>
                   <ChevronDown className={`w-3 h-3 opacity-50 shrink-0 ml-2 transition-transform ${openFilter === 'category' ? 'rotate-180' : ''}`} />
@@ -221,7 +240,7 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         transition={{ duration: 0.15, ease: "easeOut" }}
-                        className="absolute z-50 top-full left-0 mt-1 w-full min-w-[220px] max-h-[300px] overflow-hidden bg-zinc-900 border border-white/10 rounded-xl shadow-2xl flex flex-col"
+                        className="absolute z-50 top-full left-0 mt-1 w-full min-w-[220px] max-h-[300px] overflow-hidden bg-zinc-800 border border-white/5 rounded-xl flex flex-col"
                       >
                         <div className="p-2 border-b border-white/5 shrink-0">
                           <div className="relative">
@@ -270,7 +289,7 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
               <div className="relative w-full">
                 <button 
                   onClick={() => setOpenFilter(openFilter === 'type' ? null : 'type')}
-                  className="w-full px-3 py-2.5 bg-zinc-800 border border-white/10 rounded-xl text-xs focus:outline-none focus:border-cyan-100/50 transition-colors text-white/70 flex items-center justify-between"
+                  className="w-full px-3 py-2.5 bg-black/20 border border-white/10 rounded-xl text-xs focus:outline-none focus:border-cyan-100/50 transition-colors text-white/70 flex items-center justify-between"
                 >
                   <span className="truncate">
                     {selectedType === 'all' ? 'Tipo' : selectedType === 'INFLOW' ? 'Entradas' : 'Saídas'}
@@ -286,7 +305,7 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         transition={{ duration: 0.15, ease: "easeOut" }}
-                        className="absolute z-50 top-full left-0 mt-1 w-full min-w-[150px] overflow-hidden bg-zinc-900 border border-white/10 rounded-xl shadow-2xl p-1.5 flex flex-col gap-1"
+                        className="absolute z-50 top-full left-0 mt-1 w-full min-w-[150px] overflow-hidden bg-zinc-800 border border-white/5 rounded-xl p-1.5 flex flex-col gap-1"
                       >
                         <button
                           onClick={() => { handleFilterChange(setSelectedType, 'all', 'Tipo'); setOpenFilter(null); }}
@@ -314,34 +333,34 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
             </div>
           </div>
 
-          <div className="overflow-x-auto custom-scrollbar w-full">
-            {/* Desktop Table View */}
-            <table className="w-full text-left border-separate border-spacing-0 min-w-[1000px] hidden md:table">
-              <thead>
-                <tr className="text-white/50 text-sm">
-                  <th className="pb-3 font-medium w-10 px-2 border-b border-white/10">
-                    <input 
-                      type="checkbox" 
-                      checked={isAllSelected}
-                      onChange={handleSelectAll}
-                      className="cyberpunk-checkbox"
-                    />
-                  </th>
-                  <th className="pb-3 font-medium w-10 border-b border-white/10"></th>
-                  <th className="pb-3 font-medium px-2 border-b border-white/10">Data</th>
-                  <th className="pb-3 font-medium px-2 border-b border-white/10">Descrição Original</th>
-                  <th className="pb-3 font-medium px-2 border-b border-white/10">Estabelecimento</th>
-                  <th className="pb-3 font-medium px-2 border-b border-white/10">Método</th>
-                  <th className="pb-3 font-medium px-2 border-b border-white/10">Categoria</th>
-                  <th className="pb-3 font-medium px-2 text-right border-b border-white/10">Valor</th>
-                </tr>
-              </thead>
+          <div className="bg-zinc-800 border border-white/5 rounded-2xl md:rounded-3xl overflow-hidden">
+            <div className="overflow-x-auto custom-scrollbar w-full">
+              {/* Desktop Table View */}
+              <table className="w-full text-left border-separate border-spacing-0 min-w-[1000px] hidden md:table">
+                <thead>
+                  <tr className="text-zinc-400 text-sm">
+                    <th className="pb-3 pt-6 font-medium w-10 px-6 border-b border-white/5">
+                      <input 
+                        type="checkbox" 
+                        checked={isAllSelected}
+                        onChange={handleSelectAll}
+                        className="cyberpunk-checkbox"
+                      />
+                    </th>
+                    <th className="pb-3 pt-6 font-medium w-10 border-b border-white/5"></th>
+                    <th className="pb-3 pt-6 font-medium px-2 border-b border-white/5">Data</th>
+                    <th className="pb-3 pt-6 font-medium px-2 border-b border-white/5">Estabelecimento</th>
+                    <th className="pb-3 pt-6 font-medium px-2 border-b border-white/5">Método</th>
+                    <th className="pb-3 pt-6 font-medium px-2 border-b border-white/5">Categoria</th>
+                    <th className="pb-3 pt-6 font-medium px-6 text-right border-b border-white/5">Valor</th>
+                  </tr>
+                </thead>
               <tbody className="text-sm md:text-base">
-                {filteredTransactions.length > 0 ? (
-                  filteredTransactions.map((tx, index) => {
+                {paginatedTransactions.length > 0 ? (
+                  paginatedTransactions.map((tx, index) => {
                     const isSelected = selectedIds.has(tx.id);
-                    const prevSelected = index > 0 && selectedIds.has(filteredTransactions[index - 1].id);
-                    const nextSelected = index < filteredTransactions.length - 1 && selectedIds.has(filteredTransactions[index + 1].id);
+                    const prevSelected = index > 0 && selectedIds.has(paginatedTransactions[index - 1].id);
+                    const nextSelected = index < paginatedTransactions.length - 1 && selectedIds.has(paginatedTransactions[index + 1].id);
                     
                     const rowBgClass = isSelected ? 'bg-cyan-100/10' : 'group-hover:bg-zinc-800/50';
                     const rowBorderColor = (isSelected && nextSelected) ? 'border-cyan-100/10' : 'border-white/5';
@@ -393,10 +412,7 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
                             {tx.flow === 'INFLOW' ? <ArrowDownRight className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
                           </div>
                         </td>
-                        <td className={`${cellBase} text-white/70 whitespace-nowrap`}>{tx.date}</td>
-                        <td className={`${cellBase} text-white/50 text-xs truncate max-w-[150px]`} title={tx.memo}>
-                          {tx.memo}
-                        </td>
+                        <td className={`${cellBase} text-white/70 whitespace-nowrap`}>{formatDateBR(tx.date)}</td>
                         <td className={`${cellBase} font-medium text-white/90 truncate max-w-[200px]`} title={tx.cleanName}>
                           {tx.cleanName || '---'}
                         </td>
@@ -408,10 +424,18 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
                         <td className={`${cellBase} text-white/70 relative`}>
                           <div className="relative w-[180px]">
                             <button 
-                              onClick={() => {
+                              onClick={(e) => {
                                 if (editingCategoryId === tx.id) {
                                   setEditingCategoryId(null);
+                                  setDropdownPos(null);
                                 } else {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const up = rect.bottom > window.innerHeight / 2;
+                                  setDropdownPos({
+                                    top: up ? rect.top - 4 : rect.bottom + 4,
+                                    left: rect.left,
+                                    up
+                                  });
                                   setEditingCategoryId(tx.id);
                                   setCategorySearch('');
                                 }
@@ -422,56 +446,6 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
                               <span className="truncate">{tx.category || 'Pendente'}</span>
                               <ChevronDown className="w-3 h-3 opacity-50 shrink-0 ml-2" />
                             </button>
-
-                            <AnimatePresence>
-                              {editingCategoryId === tx.id && (
-                                <>
-                                  <div className="fixed inset-0 z-40" onClick={() => setEditingCategoryId(null)} />
-                                  <motion.div 
-                                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                                    transition={{ duration: 0.15, ease: "easeOut" }}
-                                    className="absolute z-50 top-full left-0 mt-1 w-[220px] max-h-[300px] overflow-hidden bg-zinc-900 border border-white/10 rounded-xl shadow-2xl flex flex-col"
-                                  >
-                                    <div className="p-2 border-b border-white/5 shrink-0">
-                                      <div className="relative">
-                                        <Search className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-white/40" />
-                                        <input
-                                          type="text"
-                                          autoFocus
-                                          placeholder="Buscar categoria..."
-                                          value={categorySearch}
-                                          onChange={(e) => setCategorySearch(e.target.value)}
-                                          className="w-full bg-black/20 border border-white/10 rounded-md py-1.5 pl-7 pr-2 text-xs text-white placeholder:text-white/30 outline-none focus:border-cyan-100/50 transition-colors"
-                                        />
-                                      </div>
-                                    </div>
-                                    <div className="p-1.5 overflow-y-auto custom-scrollbar flex flex-col gap-1">
-                                      {allCategories
-                                        .filter(cat => cat.toLowerCase().includes(categorySearch.toLowerCase()))
-                                        .map(cat => (
-                                        <button
-                                          key={cat}
-                                          onClick={() => {
-                                            onUpdateCategory(tx.id, cat);
-                                            setEditingCategoryId(null);
-                                          }}
-                                          className={`w-full px-2.5 py-1.5 rounded-md border text-xs text-left transition-all hover:brightness-110 ${getCategoryColor(cat)}`}
-                                        >
-                                          {cat}
-                                        </button>
-                                      ))}
-                                      {allCategories.filter(cat => cat.toLowerCase().includes(categorySearch.toLowerCase())).length === 0 && (
-                                        <div className="text-center py-4 text-white/40 text-xs">
-                                          Nenhuma categoria encontrada
-                                        </div>
-                                      )}
-                                    </div>
-                                  </motion.div>
-                                </>
-                              )}
-                            </AnimatePresence>
                           </div>
                         </td>
                         <td className={`${cellBase} text-right font-medium whitespace-nowrap ${tx.flow === 'INFLOW' ? 'text-emerald-300' : 'text-white/90'} ${isSelected ? (
@@ -493,6 +467,8 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
 
             {/* Mobile Card View */}
             <div className="md:hidden space-y-3">
@@ -509,11 +485,11 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
                 <span className="text-xs text-white/30">{filteredTransactions.length} transações</span>
               </div>
 
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((tx, index) => {
+              {paginatedTransactions.length > 0 ? (
+                paginatedTransactions.map((tx, index) => {
                   const isSelected = selectedIds.has(tx.id);
-                  const prevSelected = index > 0 && selectedIds.has(filteredTransactions[index - 1].id);
-                  const nextSelected = index < filteredTransactions.length - 1 && selectedIds.has(filteredTransactions[index + 1].id);
+                  const prevSelected = index > 0 && selectedIds.has(paginatedTransactions[index - 1].id);
+                  const nextSelected = index < paginatedTransactions.length - 1 && selectedIds.has(paginatedTransactions[index + 1].id);
                   
                   const rowBgClass = isSelected ? 'bg-cyan-100/10' : 'active:bg-zinc-800/50';
                   const rowBorderColor = (isSelected && nextSelected) ? 'border-cyan-100/10' : 'border-white/5';
@@ -545,7 +521,7 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
                                   e.stopPropagation();
                                   setIsDeleteModalOpen(true);
                                 }}
-                                className="absolute left-full ml-2 top-0 p-2 bg-rose-500 text-white rounded-full shadow-lg shadow-rose-500/40 z-50 flex items-center gap-2"
+                                className="absolute left-full ml-2 top-0 p-2 bg-rose-500 text-white rounded-full z-50 flex items-center gap-2"
                               >
                                 <Trash2 className="w-4 h-4" />
                                 {selectedIds.size > 1 && (
@@ -558,32 +534,28 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
                           </AnimatePresence>
                         </div>
 
-                        <div className="flex-1 min-w-0 space-y-3">
+                        <div className="flex-1 min-w-0 space-y-2">
                           <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <h4 className="text-white font-medium truncate" title={tx.cleanName}>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className={`p-1.5 rounded-lg shrink-0 ${tx.flow === 'INFLOW' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                                {tx.flow === 'INFLOW' ? <ArrowDownRight className="w-3.5 h-3.5" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
+                              </div>
+                              <h4 className="text-white font-medium truncate text-sm" title={tx.cleanName}>
                                 {tx.cleanName || '---'}
                               </h4>
-                              <p className="text-white/40 text-xs truncate" title={tx.memo}>
-                                {tx.memo}
-                              </p>
                             </div>
-                            <div className={`text-right font-bold whitespace-nowrap ${tx.flow === 'INFLOW' ? 'text-emerald-300' : 'text-white'}`}>
+                            <div className={`text-right font-bold whitespace-nowrap text-sm ${tx.flow === 'INFLOW' ? 'text-emerald-300' : 'text-white'}`}>
                               {tx.flow === 'INFLOW' ? '+' : ''}{formatCurrency(tx.amount)}
                             </div>
                           </div>
 
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <div className={`p-1 rounded-md ${tx.flow === 'INFLOW' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
-                                {tx.flow === 'INFLOW' ? <ArrowDownRight className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
-                              </div>
-                              <span className="text-white/40 text-xs">{tx.date}</span>
+                          <div className="flex items-center justify-between gap-2 w-full mt-1.5">
+                            <div className="flex items-center gap-1.5 min-w-0 shrink">
+                              <span className="text-white/40 text-[11px] whitespace-nowrap">{formatDateBR(tx.date)}</span>
+                              <span className="w-1 h-1 rounded-full bg-white/10 shrink-0"></span>
+                              <span className="text-white/50 text-[11px] truncate">{tx.paymentMethod || 'Outros'}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="px-2 py-0.5 rounded bg-zinc-800 border border-white/5 text-[10px] text-white/50">
-                                {tx.paymentMethod || 'Outros'}
-                              </span>
+                            <div className="flex items-center shrink-0 min-w-0 max-w-[55%]">
                               <button 
                                 onClick={() => {
                                   if (editingCategoryId === tx.id) {
@@ -593,7 +565,7 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
                                     setCategorySearch('');
                                   }
                                 }}
-                                className={`px-2 py-0.5 rounded border text-[10px] font-medium ${getCategoryColor(tx.category || 'Outros')}`}
+                                className={`px-2 py-0.5 rounded border text-[10px] font-medium truncate w-full ${getCategoryColor(tx.category || 'Outros')}`}
                               >
                                 {tx.category || 'Pendente'}
                               </button>
@@ -611,7 +583,7 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
                               initial={{ opacity: 0, scale: 0.9, y: 20 }}
                               animate={{ opacity: 1, scale: 1, y: 0 }}
                               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[70] bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[70vh]"
+                              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[70] bg-zinc-800 border border-white/5 rounded-2xl flex flex-col max-h-[70vh]"
                             >
                               <div className="p-4 border-b border-white/5 flex items-center justify-between">
                                 <h3 className="text-white font-medium">Alterar Categoria</h3>
@@ -662,10 +634,93 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
               )}
             </div>
           </div>
-        </div>
-      </div>
 
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-white/5 pt-4 mt-4 px-2">
+              <span className="text-sm text-white/50">
+                Página {currentPage} de {totalPages}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 rounded-lg bg-zinc-800 border border-white/5 text-sm text-white/70 hover:text-white hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Anterior
+                </button>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 rounded-lg bg-zinc-800 border border-white/5 text-sm text-white/70 hover:text-white hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Próxima
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      
       {/* Floating Delete Button removed, now using selection bar */}
+
+      {/* Desktop Fixed Category Dropdown */}
+      <AnimatePresence>
+        {editingCategoryId && dropdownPos && (
+          <>
+            <div className="fixed inset-0 z-[90]" onClick={() => { setEditingCategoryId(null); setDropdownPos(null); }} />
+            <motion.div 
+              initial={{ opacity: 0, y: dropdownPos.up ? 10 : -10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: dropdownPos.up ? 10 : -10, scale: 0.95 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              style={{
+                position: 'fixed',
+                top: dropdownPos.up ? 'auto' : dropdownPos.top,
+                bottom: dropdownPos.up ? window.innerHeight - dropdownPos.top : 'auto',
+                left: dropdownPos.left,
+                width: '220px'
+              }}
+              className="z-[100] max-h-[300px] overflow-hidden bg-zinc-800 border border-white/5 rounded-xl flex flex-col category-dropdown-content"
+            >
+              <div className="p-2 border-b border-white/5 shrink-0">
+                <div className="relative">
+                  <Search className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-white/40" />
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Buscar categoria..."
+                    value={categorySearch}
+                    onChange={(e) => setCategorySearch(e.target.value)}
+                    className="w-full bg-black/20 border border-white/10 rounded-md py-1.5 pl-7 pr-2 text-xs text-white placeholder:text-white/30 outline-none focus:border-cyan-100/50 transition-colors"
+                  />
+                </div>
+              </div>
+              <div className="p-1.5 overflow-y-auto custom-scrollbar flex flex-col gap-1">
+                {allCategories
+                  .filter(cat => cat.toLowerCase().includes(categorySearch.toLowerCase()))
+                  .map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      onUpdateCategory(editingCategoryId, cat);
+                      setEditingCategoryId(null);
+                      setDropdownPos(null);
+                    }}
+                    className={`w-full px-2.5 py-1.5 rounded-md border text-xs text-left transition-all hover:brightness-110 ${getCategoryColor(cat)}`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+                {allCategories.filter(cat => cat.toLowerCase().includes(categorySearch.toLowerCase())).length === 0 && (
+                  <div className="text-center py-4 text-white/40 text-xs">
+                    Nenhuma categoria encontrada
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
@@ -680,7 +735,7 @@ export default function TransactionsList({ appData, onUpdateCategory, onDeleteTr
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-zinc-900 border border-white/10 shadow-2xl rounded-2xl p-6 max-w-md w-full"
+              className="bg-zinc-800 border border-white/5 rounded-2xl p-6 max-w-md w-full"
             >
               <div className="flex items-center gap-4 mb-4">
                 <div className="p-3 bg-rose-500/20 text-rose-400 rounded-full">

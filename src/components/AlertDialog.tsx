@@ -41,7 +41,7 @@ export default function AlertDialog({
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-md bg-zinc-900/80 backdrop-blur-xl border border-white/10 rounded-[32px] p-8 shadow-2xl overflow-hidden"
+            className="relative w-full max-w-md bg-zinc-800/80 backdrop-blur-xl border border-white/5 rounded-[32px] p-8 overflow-hidden"
           >
             {/* Close Button */}
             <button

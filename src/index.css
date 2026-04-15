@@ -5,7 +5,7 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-zalando: "Zalando Sans Expanded", "Inter", sans-serif;
-  --color-app-bg: #141417;
+  --color-app-bg: #18181b;
 }
 
 @layer base {

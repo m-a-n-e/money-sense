@@ -227,17 +227,39 @@ export default function GlobalAssistant({ appData }: GlobalAssistantProps) {
     <>
       <AnimatePresence>
         {/* FAB */}
-        {!isOpen && !isFabExpanded && (
+        {!isOpen && (
           <motion.button
             key="fab"
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            onClick={() => setIsFabExpanded(true)}
-            className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-zinc-900 border border-white/10 shadow-2xl flex items-center justify-center text-cyan-100 hover:bg-zinc-800 transition-colors"
+            onClick={() => setIsFabExpanded(!isFabExpanded)}
+            className="fixed bottom-6 right-6 z-[60] w-14 h-14 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center text-cyan-100 hover:bg-zinc-700 transition-colors"
           >
-            <Bot className="w-6 h-6" />
+            <AnimatePresence mode="wait">
+              {isFabExpanded ? (
+                <motion.div
+                  key="close"
+                  initial={{ rotate: -90, opacity: 0 }}
+                  animate={{ rotate: 0, opacity: 1 }}
+                  exit={{ rotate: 90, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <X className="w-6 h-6" />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="bot"
+                  initial={{ rotate: 90, opacity: 0 }}
+                  animate={{ rotate: 0, opacity: 1 }}
+                  exit={{ rotate: -90, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <Bot className="w-6 h-6" />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.button>
         )}
 
@@ -249,16 +271,10 @@ export default function GlobalAssistant({ appData }: GlobalAssistantProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="fixed bottom-6 right-6 z-50 w-[240px] bg-zinc-900 border border-white/10 shadow-2xl rounded-3xl flex flex-col p-2 origin-bottom-right"
+            className="fixed bottom-24 right-6 z-50 w-[240px] bg-zinc-800 border border-white/5 rounded-3xl flex flex-col p-2 origin-bottom-right"
           >
             <div className="flex items-center justify-between px-3 py-2 border-b border-white/5 mb-2">
               <span className="text-xs font-medium text-white/50">Assistentes</span>
-              <button 
-                onClick={() => setIsFabExpanded(false)} 
-                className="text-white/50 hover:text-white p-1 rounded-md hover:bg-zinc-900 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
             </div>
             <div className="flex flex-col gap-1">
               {PERSONAS.map((p) => (
@@ -269,7 +285,7 @@ export default function GlobalAssistant({ appData }: GlobalAssistantProps) {
                     setIsOpen(true);
                     setIsFabExpanded(false);
                   }}
-                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-zinc-900 transition-colors text-left"
+                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-zinc-800 transition-colors text-left"
                 >
                   <div className={`p-2 rounded-full ${p.bgColor} ${p.color}`}>
                     <p.icon className="w-4 h-4" />
@@ -292,17 +308,17 @@ export default function GlobalAssistant({ appData }: GlobalAssistantProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-[100] sm:z-50 w-full sm:w-[400px] h-full sm:h-[600px] sm:max-h-[80vh] bg-zinc-900 border-0 sm:border border-white/10 shadow-2xl flex flex-col overflow-hidden origin-bottom sm:origin-bottom-right sm:rounded-2xl"
+            className="fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-[100] sm:z-50 w-full sm:w-[400px] h-full sm:h-[600px] sm:max-h-[80vh] bg-zinc-800 border-0 sm:border border-white/10 flex flex-col overflow-hidden origin-bottom sm:origin-bottom-right sm:rounded-2xl"
           >
             {/* Header */}
               <motion.div 
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="p-4 bg-zinc-900 border-b border-white/10 flex items-center justify-between shrink-0 relative z-50 overflow-hidden"
+                className="p-4 bg-zinc-800 border-b border-white/10 flex items-center justify-between shrink-0 relative z-50 overflow-hidden"
               >
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-full ${selectedPersona.bgColor} ${selectedPersona.color} border ${selectedPersona.borderColor} shadow-lg shadow-black/20`}>
+                  <div className={`p-2 rounded-full ${selectedPersona.bgColor} ${selectedPersona.color} border ${selectedPersona.borderColor}`}>
                     <selectedPersona.icon className="w-5 h-5" />
                   </div>
                   <div>
@@ -344,10 +360,10 @@ export default function GlobalAssistant({ appData }: GlobalAssistantProps) {
                   
                   {isLoading && (
                     <div className="flex gap-3">
-                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${selectedPersona.bgColor} ${selectedPersona.color}`}>
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${selectedPersona.bgColor} ${selectedPersona.color}`}>
                         <selectedPersona.icon className="w-4 h-4" />
                       </div>
-                      <div className="bg-zinc-900 border border-white/10 rounded-2xl rounded-tl-sm p-4 flex items-center gap-2 shadow-md">
+                      <div className="bg-zinc-800 border border-white/10 rounded-2xl rounded-tl-sm p-4 flex items-center gap-2">
                         <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                         <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                         <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -357,17 +373,17 @@ export default function GlobalAssistant({ appData }: GlobalAssistantProps) {
 
                   {[...messages].reverse().map((msg, idx) => (
                     <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                         msg.role === 'user' 
                           ? 'bg-cyan-100/20 text-cyan-100 border border-cyan-100/30' 
                           : `${selectedPersona.bgColor} ${selectedPersona.color}`
                       }`}>
                         {msg.role === 'user' ? <User className="w-4 h-4" /> : <selectedPersona.icon className="w-4 h-4" />}
                       </div>
-                      <div className={`max-w-[85%] rounded-2xl p-3.5 shadow-md ${
+                      <div className={`max-w-[85%] rounded-2xl p-3.5 ${
                         msg.role === 'user' 
                           ? 'bg-cyan-100/10 border border-cyan-100/20 text-cyan-50 rounded-tr-sm' 
-                          : 'bg-zinc-900 border border-white/10 text-white/90 rounded-tl-sm'
+                          : 'bg-zinc-800 border border-white/10 text-white/90 rounded-tl-sm'
                       }`}>
                         {msg.role === 'user' ? (
                           <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.text}</p>
@@ -388,7 +404,7 @@ export default function GlobalAssistant({ appData }: GlobalAssistantProps) {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
-                  className="bg-zinc-900 border-t border-white/10 flex flex-col shrink-0"
+                  className="bg-zinc-800 border-t border-white/10 flex flex-col shrink-0"
                 >
                   <div className="px-3 pt-3 pb-1 flex flex-nowrap overflow-x-auto overscroll-contain gap-2 custom-scrollbar hide-scrollbar-on-mobile">
                     {selectedPersona.suggestions.map((sug, idx) => (

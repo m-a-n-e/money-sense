@@ -3,6 +3,7 @@ import { OFXData } from '../lib/parsers';
 import { ArrowDownRight, ArrowUpRight, TrendingUp, TrendingDown, DollarSign, UploadCloud, X, FileText, LayoutDashboard, ListOrdered, PieChart as PieChartIcon } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { getCategoryColor, getCategoryHexColor } from '../lib/categoryColors';
+import { formatDateBR } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'react-hot-toast';
 
@@ -40,11 +41,13 @@ interface DashboardProps {
   onProcessFile: (file: File) => void;
   onOpenImportModal: () => void;
   subView?: string;
+  isProcessing?: boolean;
+  importProgress?: number;
 }
 
 const COLORS = ['#cffafe', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#60a5fa', '#f472b6', '#94a3b8'];
 
-export default function Dashboard({ appData, onProcessFile, onOpenImportModal }: DashboardProps) {
+export default function Dashboard({ appData, onProcessFile, onOpenImportModal, isProcessing, importProgress = 0 }: DashboardProps) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   const transactions = appData?.transactions || [];
@@ -109,60 +112,108 @@ export default function Dashboard({ appData, onProcessFile, onOpenImportModal }:
       <div className="w-full max-w-6xl mx-auto space-y-6 md:space-y-8">
         
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="p-3 bg-cyan-100/10 text-cyan-100 rounded-2xl border border-cyan-100/20 shrink-0">
-              <LayoutDashboard className="w-6 h-6" />
-            </div>
+          <div className="flex items-start gap-4 min-w-0">
+            <LayoutDashboard className="w-8 h-8 text-cyan-100 mt-1 shrink-0" />
             <div className="min-w-0">
               <h2 className="text-2xl md:text-3xl font-light tracking-tight mb-1 truncate">Dashboard</h2>
               <p className="text-white/50 text-sm truncate">Acompanhe suas finanças categorizadas automaticamente.</p>
             </div>
           </div>
           <button 
-            onClick={() => onOpenImportModal()}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-cyan-50 border border-white/10 rounded-xl transition-all font-medium text-sm md:text-base shadow-xl"
+            onClick={() => !isProcessing && onOpenImportModal()}
+            disabled={isProcessing}
+            className={`relative overflow-hidden flex items-center justify-center gap-2 px-4 py-2.5 border border-white/5 rounded-xl transition-all font-medium text-sm md:text-base bg-zinc-800 ${
+              isProcessing ? 'cursor-not-allowed' : 'hover:bg-zinc-700 text-cyan-50'
+            }`}
           >
-            <UploadCloud className="w-4 h-4 md:w-5 md:h-5" />
-            Importar extrato
+            {/* Background Progress Bar */}
+            <AnimatePresence>
+              {isProcessing && (
+                <motion.div 
+                  className="absolute left-0 top-0 bottom-0 bg-cyan-100 z-0"
+                  initial={{ width: 0, opacity: 1 }}
+                  animate={{ width: `${importProgress}%`, opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ ease: "easeOut", duration: 0.3 }}
+                />
+              )}
+            </AnimatePresence>
+
+            {/* Layer 1: Base text (Cyan-100 on Gray background) */}
+            <div className={`relative z-10 flex items-center justify-center gap-2 transition-colors duration-300 ${isProcessing ? 'text-cyan-100' : ''}`}>
+              <UploadCloud className={`w-4 h-4 md:w-5 md:h-5 ${isProcessing ? 'animate-pulse' : ''}`} />
+              <div className="flex items-center">
+                {isProcessing ? (
+                  <span className="flex items-center">
+                    Processando
+                    <span className="inline-block w-4 text-left">
+                      <motion.span animate={{ opacity: [0, 1, 1, 0] }} transition={{ duration: 1.5, repeat: Infinity, times: [0, 0.33, 0.66, 1] }}>.</motion.span>
+                      <motion.span animate={{ opacity: [0, 0, 1, 0] }} transition={{ duration: 1.5, repeat: Infinity, times: [0, 0.33, 0.66, 1] }}>.</motion.span>
+                      <motion.span animate={{ opacity: [0, 0, 0, 1] }} transition={{ duration: 1.5, repeat: Infinity, times: [0, 0.33, 0.66, 1] }}>.</motion.span>
+                    </span>
+                  </span>
+                ) : 'Importar extrato'}
+              </div>
+            </div>
+
+            {/* Layer 2: Clipped text (Dark Cyan on Cyan-100 background) */}
+            {isProcessing && (
+              <motion.div 
+                className="absolute inset-0 z-20 flex items-center justify-center gap-2 text-cyan-900 pointer-events-none whitespace-nowrap"
+                initial={{ clipPath: 'inset(0 100% 0 0)' }}
+                animate={{ clipPath: `inset(0 ${100 - importProgress}% 0 0)` }}
+                transition={{ ease: "easeOut", duration: 0.3 }}
+              >
+                <UploadCloud className="w-4 h-4 md:w-5 md:h-5 animate-pulse" />
+                <div className="flex items-center">
+                  <span className="flex items-center">
+                    Processando
+                    <span className="inline-block w-4 text-left">
+                      <span>.</span><span>.</span><span>.</span>
+                    </span>
+                  </span>
+                </div>
+              </motion.div>
+            )}
           </button>
         </header>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-          <div className="bg-zinc-900 border border-white/10 shadow-xl rounded-2xl md:rounded-3xl p-5 md:p-6 relative overflow-hidden">
+          <div className="bg-zinc-800 border border-white/5 rounded-2xl md:rounded-3xl p-6 md:p-8 relative overflow-hidden flex flex-col justify-center min-h-[120px]">
             <div className="absolute top-0 right-0 p-4 md:p-6 opacity-20 text-cyan-100">
               <DollarSign className="w-12 h-12 md:w-16 md:h-16" />
             </div>
-            <p className="text-white/50 font-medium mb-1 md:mb-2 text-sm md:text-base">Saldo Atual</p>
-            <h3 className="text-2xl md:text-3xl font-semibold text-cyan-50">{formatCurrency(balance)}</h3>
+            <p className="text-white/50 font-medium mb-1 md:mb-2 text-sm md:text-base relative z-10">Saldo Atual</p>
+            <h3 className="text-2xl md:text-3xl font-semibold text-cyan-50 relative z-10 truncate">{formatCurrency(balance)}</h3>
           </div>
           
-          <div className="bg-zinc-900 border border-white/10 shadow-xl rounded-3xl p-5 md:p-6 relative overflow-hidden">
+          <div className="bg-zinc-800 border border-white/5 rounded-2xl md:rounded-3xl p-6 md:p-8 relative overflow-hidden flex flex-col justify-center min-h-[120px]">
             <div className="absolute top-0 right-0 p-4 md:p-6 opacity-20 text-emerald-400">
               <TrendingUp className="w-12 h-12 md:w-16 md:h-16" />
             </div>
-            <p className="text-white/50 font-medium mb-1 md:mb-2 text-sm md:text-base">Entradas</p>
-            <h3 className="text-2xl md:text-3xl font-semibold text-emerald-300">{formatCurrency(income)}</h3>
+            <p className="text-white/50 font-medium mb-1 md:mb-2 text-sm md:text-base relative z-10">Entradas</p>
+            <h3 className="text-2xl md:text-3xl font-semibold text-emerald-300 relative z-10 truncate">{formatCurrency(income)}</h3>
           </div>
 
-          <div className="bg-zinc-900 border border-white/10 shadow-xl rounded-2xl md:rounded-3xl p-5 md:p-6 relative overflow-hidden sm:col-span-2 md:col-span-1">
+          <div className="bg-zinc-800 border border-white/5 rounded-2xl md:rounded-3xl p-6 md:p-8 relative overflow-hidden sm:col-span-2 md:col-span-1 flex flex-col justify-center min-h-[120px]">
             <div className="absolute top-0 right-0 p-4 md:p-6 opacity-20 text-rose-400">
               <TrendingDown className="w-12 h-12 md:w-16 md:h-16" />
             </div>
-            <p className="text-white/50 font-medium mb-1 md:mb-2 text-sm md:text-base">Saídas</p>
-            <h3 className="text-2xl md:text-3xl font-semibold text-rose-300">{formatCurrency(expense)}</h3>
+            <p className="text-white/50 font-medium mb-1 md:mb-2 text-sm md:text-base relative z-10">Saídas</p>
+            <h3 className="text-2xl md:text-3xl font-semibold text-rose-300 relative z-10 truncate">{formatCurrency(expense)}</h3>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           {/* Chart */}
-          <div className="lg:col-span-1 bg-zinc-900 border border-white/10 shadow-xl rounded-2xl md:rounded-3xl p-5 md:p-6 flex flex-col">
-            <div className="flex items-center gap-3 mb-6">
+          <div className="lg:col-span-1 bg-zinc-800 border border-white/5 rounded-2xl md:rounded-3xl p-6 md:p-8 flex flex-col h-[400px] md:h-[500px]">
+            <div className="flex items-center gap-3 mb-6 shrink-0">
               <PieChartIcon className="w-5 h-5 text-cyan-100" />
               <h3 className="text-base md:text-lg font-medium text-cyan-50">Despesas por Categoria</h3>
             </div>
-            <div className="flex flex-col gap-8">
-              <div className="h-[250px] relative">
+            <div className="flex flex-col gap-6 flex-1 min-h-0">
+              <div className="h-[200px] md:h-[220px] shrink-0 relative">
                 {categoryData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -195,7 +246,7 @@ export default function Dashboard({ appData, onProcessFile, onOpenImportModal }:
                 )}
               </div>
               {categoryData.length > 0 && (
-                <div className="space-y-1 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
+                <div className="space-y-1 overflow-y-auto custom-scrollbar pr-2 flex-1">
                   {categoryData.map((cat, idx) => (
                     <div 
                       key={cat.name} 
@@ -220,7 +271,7 @@ export default function Dashboard({ appData, onProcessFile, onOpenImportModal }:
                             exit={{ height: 0, opacity: 0 }}
                             className="overflow-hidden"
                           >
-                            <div className="mt-1 mb-2 mx-2 p-3 bg-zinc-800 border border-white/10 shadow-xl rounded-xl">
+                            <div className="mt-1 mb-2 mx-2 p-4 bg-zinc-800 border border-white/5 rounded-xl">
                               <p className="text-xs text-white/70 leading-relaxed">
                                 {CATEGORY_DESCRIPTIONS[cat.name] || 'Despesas ou receitas associadas a esta categoria.'}
                               </p>
@@ -236,25 +287,24 @@ export default function Dashboard({ appData, onProcessFile, onOpenImportModal }:
           </div>
 
           {/* Recent Transactions Table */}
-          <div className="lg:col-span-2 bg-zinc-900 border border-white/10 shadow-xl rounded-2xl md:rounded-3xl p-5 md:p-6 flex flex-col h-[400px] md:h-[500px]">
-            <div className="flex items-center gap-3 mb-6">
+          <div className="lg:col-span-2 bg-zinc-800 border border-white/5 rounded-2xl md:rounded-3xl p-6 md:p-8 flex flex-col h-[400px] md:h-[500px]">
+            <div className="flex items-center gap-3 mb-6 shrink-0">
               <ListOrdered className="w-5 h-5 text-cyan-100" />
               <h3 className="text-base md:text-lg font-medium text-cyan-50">Transações Recentes</h3>
             </div>
-            <div className="overflow-x-auto custom-scrollbar flex-1 relative w-full">
+            <div className="overflow-auto custom-scrollbar flex-1 relative w-full">
               {isEmpty ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white/40">
                   <UploadCloud className="w-12 h-12 mb-4 opacity-50" />
                   <p>Importe seu extrato bancário para começar a analisar suas finanças.</p>
                 </div>
               ) : (
-                <table className="w-full text-left border-collapse min-w-[800px]">
-                  <thead>
-                    <tr className="border-b border-white/10 text-white/50 text-sm">
+                <table className="w-full text-left border-collapse min-w-[600px]">
+                  <thead className="sticky top-0 bg-zinc-800 z-10">
+                    <tr className="border-b border-white/5 text-zinc-400 text-sm">
                       <th className="pb-3 font-medium w-10"></th>
                       <th className="pb-3 font-medium px-2">Data</th>
                       <th className="pb-3 font-medium px-2">Estabelecimento</th>
-                      <th className="pb-3 font-medium px-2">Método</th>
                       <th className="pb-3 font-medium px-2">Categoria</th>
                       <th className="pb-3 font-medium px-2 text-right">Valor</th>
                     </tr>
@@ -267,14 +317,9 @@ export default function Dashboard({ appData, onProcessFile, onOpenImportModal }:
                             {tx.flow === 'INFLOW' ? <ArrowDownRight className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
                           </div>
                         </td>
-                        <td className="py-3 px-2 text-white/70 whitespace-nowrap">{tx.date}</td>
+                        <td className="py-3 px-2 text-white/70 whitespace-nowrap">{formatDateBR(tx.date)}</td>
                         <td className="py-3 px-2 font-medium text-white/90 truncate max-w-[200px]" title={tx.cleanName || tx.description}>
                           {tx.cleanName || tx.description || 'Desconhecido'}
-                        </td>
-                        <td className="py-3 px-2 text-white/70">
-                          <span className="px-2.5 py-1 rounded-md bg-zinc-800 border border-white/5 text-xs whitespace-nowrap">
-                            {tx.paymentMethod || 'Outros'}
-                          </span>
                         </td>
                         <td className="py-3 px-2 text-white/70">
                           <span className={`px-2.5 py-1 rounded-md border text-xs whitespace-nowrap ${getCategoryColor(tx.category || 'Outros')}`}>
@@ -295,7 +340,7 @@ export default function Dashboard({ appData, onProcessFile, onOpenImportModal }:
 
         {/* Resumo Mensal */}
         {monthlyData.length > 0 && (
-          <div className="bg-zinc-900 border border-white/10 shadow-xl rounded-2xl md:rounded-3xl p-5 md:p-6 flex flex-col">
+          <div className="bg-zinc-800 border border-white/5 rounded-2xl md:rounded-3xl p-6 md:p-8 flex flex-col">
             <div className="flex items-center gap-3 mb-6">
               <TrendingUp className="w-5 h-5 text-cyan-100" />
               <h3 className="text-base md:text-lg font-medium text-cyan-50">Resumo Mensal</h3>
